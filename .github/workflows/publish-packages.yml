@@ -11,6 +11,9 @@ on:
 permissions:
   contents: read
 
+env:
+  NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
+
 jobs:
   build-test:
     runs-on: ubuntu-latest
@@ -101,5 +104,5 @@ jobs:
             --skip-duplicate
 
       - name: Publish release to NuGet.org
-        if: ${{ secrets.NUGET_API_KEY != '' }}
-        run: dotnet nuget push "artifacts/*.nupkg" --source https://api.nuget.org/v3/index.json --api-key "${{ secrets.NUGET_API_KEY }}" --skip-duplicate
+        if: ${{ env.NUGET_API_KEY != '' }}
+        run: dotnet nuget push "artifacts/*.nupkg" --source https://api.nuget.org/v3/index.json --api-key "${{ env.NUGET_API_KEY }}" --skip-duplicate
