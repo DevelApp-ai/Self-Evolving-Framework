@@ -24,10 +24,10 @@ jobs:
           dotnet-version: 8.0.x
 
       - name: Restore
-        run: dotnet restore SelfEvolving.Framework.slnx
+        run: dotnet restore SelfEvolvingFramework.slnx
 
       - name: Build
-        run: dotnet build SelfEvolving.Framework.slnx --configuration Release --no-restore
+        run: dotnet build SelfEvolvingFramework.slnx --configuration Release --no-restore
 
       - name: Test
-        run: dotnet test SelfEvolving.Framework.slnx --configuration Release --no-build
+        run: dotnet test SelfEvolvingFramework.slnx --configuration Release --no-build

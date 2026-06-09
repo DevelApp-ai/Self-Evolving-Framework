@@ -13,7 +13,6 @@ permissions:
 
 env:
   NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
-  STABLE_VERSION: 1.0.0
 
 jobs:
   build-test:
@@ -21,6 +20,9 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
 
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
@@ -28,13 +30,13 @@ jobs:
           dotnet-version: 8.0.x
 
       - name: Restore
-        run: dotnet restore SelfEvolving.Framework.slnx
+        run: dotnet restore SelfEvolvingFramework.slnx
 
       - name: Build
-        run: dotnet build SelfEvolving.Framework.slnx --configuration Release --no-restore
+        run: dotnet build SelfEvolvingFramework.slnx --configuration Release --no-restore
 
       - name: Test
-        run: dotnet test SelfEvolving.Framework.slnx --configuration Release --no-build
+        run: dotnet test SelfEvolvingFramework.slnx --configuration Release --no-build
 
   package-prerelease:
     if: github.event_name == 'pull_request'
@@ -53,10 +55,12 @@ jobs:
           dotnet-version: 8.0.x
 
       - name: Compute prerelease version
-        run: echo "PACKAGE_VERSION=${{ env.STABLE_VERSION }}-pr.${{ github.event.pull_request.number }}.${{ github.run_number }}" >> $GITHUB_ENV
+        run: |
+          base_version="$(bash scripts/compute-next-semver.sh)"
+          echo "PACKAGE_VERSION=${base_version}-pr.${{ github.event.pull_request.number }}.${{ github.run_number }}" >> $GITHUB_ENV
 
       - name: Pack prerelease
-        run: dotnet pack src/SelfEvolving.Framework/SelfEvolving.Framework.csproj --configuration Release -p:PackageVersion=${{ env.PACKAGE_VERSION }} -p:GeneratePackageOnBuild=false --output artifacts
+        run: dotnet pack src/SelfEvolvingFramework/SelfEvolvingFramework.csproj --configuration Release -p:PackageVersion=${{ env.PACKAGE_VERSION }} -p:GeneratePackageOnBuild=false --output artifacts
 
       - name: Resolve prerelease package file
         run: |
@@ -125,6 +129,9 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
 
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
@@ -132,10 +139,10 @@ jobs:
           dotnet-version: 8.0.x
 
       - name: Compute release version
-        run: echo "PACKAGE_VERSION=${{ env.STABLE_VERSION }}" >> $GITHUB_ENV
+        run: echo "PACKAGE_VERSION=$(bash scripts/compute-next-semver.sh)" >> $GITHUB_ENV
 
       - name: Pack release
-        run: dotnet pack src/SelfEvolving.Framework/SelfEvolving.Framework.csproj --configuration Release -p:PackageVersion=${{ env.PACKAGE_VERSION }} -p:GeneratePackageOnBuild=false --output artifacts
+        run: dotnet pack src/SelfEvolvingFramework/SelfEvolvingFramework.csproj --configuration Release -p:PackageVersion=${{ env.PACKAGE_VERSION }} -p:GeneratePackageOnBuild=false --output artifacts
 
       - name: Resolve release package file
         run: |
