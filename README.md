@@ -4,7 +4,7 @@ A .NET framework scaffold for building secure, LLM-driven self-evolving C# syste
 
 ## What is included
 
-- `SelfEvolving.Framework` NuGet-packable class library (`net8.0`)
+- `DevelApp.SelfEvolvingFramework` NuGet-packable class library (`net8.0`)
 - Core abstractions for candidate programs and evolution results
 - Roslyn-based AST security evaluation for restricted namespaces/invocations
 - Roslyn dynamic in-memory compilation service
@@ -22,3 +22,9 @@ dotnet test SelfEvolving.Framework.slnx
 ## Package
 
 The library is configured as a NuGet package with `GeneratePackageOnBuild=true`.
+
+## Versioning and publishing
+
+- Pull requests targeting `main` produce prerelease packages with semantic versions like `0.1.0-pr.<pr>.<run>` and publish to GitHub Packages.
+- Pushes to `main` produce release packages with semantic versions like `0.1.<run>` and publish to GitHub Packages.
+- If `NUGET_API_KEY` is configured in repository secrets, the same `main` release package is also published to NuGet.org.

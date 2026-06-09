@@ -4,7 +4,7 @@
     <TargetFramework>net8.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
-    <PackageId>SelfEvolving.Framework</PackageId>
+    <PackageId>DevelApp.SelfEvolvingFramework</PackageId>
     <Title>Self-Evolving Framework</Title>
     <Description>Framework primitives for secure LLM-driven code evolution in C#.</Description>
     <Authors>DevelApp-ai</Authors>
