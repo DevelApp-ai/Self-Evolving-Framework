@@ -12,6 +12,22 @@ A .NET framework scaffold for building secure, LLM-driven self-evolving C# syste
 - Evolution orchestration interfaces for mutation and fitness evaluation
 - Unit and integration tests for security, compilation, orchestration, and execution
 
+## Usage
+
+Provide your own mutation and fitness implementations so you can use any LLM/model API:
+
+```csharp
+var orchestrator = new EvolutionOrchestrator(
+    new RoslynAstSecurityEvaluator(),
+    new RoslynDynamicCompilationService(),
+    fitnessEvaluator,
+    mutator);
+
+var result = await orchestrator.EvolveOnceAsync(
+    new CandidateProgram("public static class Seed { }"),
+    cancellationToken);
+```
+
 ## Build and test
 
 ```bash
