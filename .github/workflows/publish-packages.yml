@@ -70,6 +70,23 @@ jobs:
             --api-key "${{ secrets.GITHUB_TOKEN }}" \
             --skip-duplicate
 
+      - name: Verify prerelease package download from GitHub Packages
+        run: |
+          probe_dir="$(mktemp -d /tmp/package-probe-pr-XXXXXX)"
+          dotnet new classlib --framework net8.0 --output "$probe_dir" --force
+          for attempt in 1 2 3 4 5; do
+            if dotnet add "$probe_dir" package DevelApp.SelfEvolvingFramework --version "${{ env.PACKAGE_VERSION }}" --source github --prerelease; then
+              exit 0
+            fi
+
+            if [ "$attempt" -eq 5 ]; then
+              echo "Package was published but could not be restored from GitHub Packages."
+              exit 1
+            fi
+
+            sleep 10
+          done
+
   package-release:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     needs: build-test
@@ -103,6 +120,23 @@ jobs:
             --source github \
             --api-key "${{ secrets.GITHUB_TOKEN }}" \
             --skip-duplicate
+
+      - name: Verify release package download from GitHub Packages
+        run: |
+          probe_dir="$(mktemp -d /tmp/package-probe-release-XXXXXX)"
+          dotnet new classlib --framework net8.0 --output "$probe_dir" --force
+          for attempt in 1 2 3 4 5; do
+            if dotnet add "$probe_dir" package DevelApp.SelfEvolvingFramework --version "${{ env.PACKAGE_VERSION }}" --source github; then
+              exit 0
+            fi
+
+            if [ "$attempt" -eq 5 ]; then
+              echo "Package was published but could not be restored from GitHub Packages."
+              exit 1
+            fi
+
+            sleep 10
+          done
 
       - name: Publish release to NuGet.org
         if: ${{ env.NUGET_API_KEY != '' }}
