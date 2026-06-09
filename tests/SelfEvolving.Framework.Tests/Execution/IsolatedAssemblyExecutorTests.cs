@@ -32,4 +32,18 @@ public sealed class IsolatedAssemblyExecutorTests
         Assert.False(result.Completed);
         Assert.Contains(result.Diagnostics, d => d.Contains("timeout", StringComparison.OrdinalIgnoreCase));
     }
+
+    [Fact]
+    public async Task ExecuteStaticAsync_Fails_When_Method_Is_Missing()
+    {
+        var compiler = new RoslynDynamicCompilationService();
+        var executor = new IsolatedAssemblyExecutor();
+        const string source = "public static class Runner { public static int Execute() => 7; }";
+
+        var compiled = compiler.Compile(source);
+        var result = await executor.ExecuteStaticAsync(compiled.AssemblyBytes!, "Runner", "Missing", TimeSpan.FromSeconds(2));
+
+        Assert.False(result.Completed);
+        Assert.Contains(result.Diagnostics, d => d.Contains("Missing", StringComparison.Ordinal));
+    }
 }
