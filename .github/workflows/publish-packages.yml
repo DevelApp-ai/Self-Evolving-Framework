@@ -75,7 +75,7 @@ jobs:
           probe_dir="$(mktemp -d /tmp/package-probe-pr-XXXXXX)"
           dotnet new classlib --framework net8.0 --output "$probe_dir" --force
           for attempt in 1 2 3 4 5; do
-            if dotnet add "$probe_dir" package DevelApp.SelfEvolvingFramework --version "${{ env.PACKAGE_VERSION }}" --source github --prerelease; then
+            if dotnet add "$probe_dir" package DevelApp.SelfEvolvingFramework --version "${{ env.PACKAGE_VERSION }}" --source github; then
               exit 0
             fi
 
