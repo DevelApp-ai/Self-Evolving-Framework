@@ -70,12 +70,29 @@ jobs:
             --api-key "${{ secrets.GITHUB_TOKEN }}" \
             --skip-duplicate
 
+      - name: Verify prerelease package download from GitHub Packages
+        run: |
+          probe_dir="$(mktemp -d /tmp/package-probe-pr-XXXXXX)"
+          dotnet new classlib --framework net8.0 --output "$probe_dir" --force
+          for attempt in 1 2 3 4 5; do
+            if dotnet add "$probe_dir" package DevelApp.SelfEvolvingFramework --version "${{ env.PACKAGE_VERSION }}" --source "https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json"; then
+              exit 0
+            fi
+
+            if [ "$attempt" -eq 5 ]; then
+              echo "Package was published but could not be restored from GitHub Packages."
+              exit 1
+            fi
+
+            sleep 10
+          done
+
   package-release:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     needs: build-test
     runs-on: ubuntu-latest
     permissions:
-      contents: read
+      contents: write
       packages: write
 
     steps:
@@ -104,6 +121,32 @@ jobs:
             --api-key "${{ secrets.GITHUB_TOKEN }}" \
             --skip-duplicate
 
+      - name: Verify release package download from GitHub Packages
+        run: |
+          probe_dir="$(mktemp -d /tmp/package-probe-release-XXXXXX)"
+          dotnet new classlib --framework net8.0 --output "$probe_dir" --force
+          for attempt in 1 2 3 4 5; do
+            if dotnet add "$probe_dir" package DevelApp.SelfEvolvingFramework --version "${{ env.PACKAGE_VERSION }}" --source "https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json"; then
+              exit 0
+            fi
+
+            if [ "$attempt" -eq 5 ]; then
+              echo "Package was published but could not be restored from GitHub Packages."
+              exit 1
+            fi
+
+            sleep 10
+          done
+
       - name: Publish release to NuGet.org
         if: ${{ env.NUGET_API_KEY != '' }}
         run: dotnet nuget push "artifacts/*.nupkg" --source https://api.nuget.org/v3/index.json --api-key "${{ env.NUGET_API_KEY }}" --skip-duplicate
+
+      - name: Create or update GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ env.PACKAGE_VERSION }}
+          name: v${{ env.PACKAGE_VERSION }}
+          target_commitish: ${{ github.sha }}
+          generate_release_notes: true
+          files: artifacts/*.nupkg
