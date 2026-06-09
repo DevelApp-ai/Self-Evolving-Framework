@@ -3,7 +3,7 @@ set -euo pipefail
 
 default_version="${DEFAULT_VERSION:-1.0.0}"
 
-if [[ -n "${TAG_LIST:-}" ]]; then
+if [[ "${TAG_LIST+x}" == "x" ]]; then
   tags="${TAG_LIST}"
 else
   tags="$(git tag --list 'v[0-9]*.[0-9]*.[0-9]*' | sed 's/^v//')"
