@@ -60,15 +60,25 @@ jobs:
 
       - name: Publish prerelease to GitHub Packages
         run: |
+          shopt -s nullglob
+          packages=(artifacts/*.nupkg)
+          if [ "${#packages[@]}" -eq 0 ]; then
+            echo "No package artifacts were produced for prerelease publishing."
+            exit 1
+          fi
+
           dotnet nuget add source "https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json" \
             --name github \
             --username "${{ github.repository_owner }}" \
             --password "${{ secrets.GITHUB_TOKEN }}" \
             --store-password-in-clear-text
-          dotnet nuget push "artifacts/*.nupkg" \
-            --source github \
-            --api-key "${{ secrets.GITHUB_TOKEN }}" \
-            --skip-duplicate
+
+          for package in "${packages[@]}"; do
+            dotnet nuget push "$package" \
+              --source github \
+              --api-key "${{ secrets.GITHUB_TOKEN }}" \
+              --skip-duplicate
+          done
 
       - name: Verify prerelease package download from GitHub Packages
         run: |
@@ -111,15 +121,25 @@ jobs:
 
       - name: Publish release to GitHub Packages
         run: |
+          shopt -s nullglob
+          packages=(artifacts/*.nupkg)
+          if [ "${#packages[@]}" -eq 0 ]; then
+            echo "No package artifacts were produced for release publishing."
+            exit 1
+          fi
+
           dotnet nuget add source "https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json" \
             --name github \
             --username "${{ github.repository_owner }}" \
             --password "${{ secrets.GITHUB_TOKEN }}" \
             --store-password-in-clear-text
-          dotnet nuget push "artifacts/*.nupkg" \
-            --source github \
-            --api-key "${{ secrets.GITHUB_TOKEN }}" \
-            --skip-duplicate
+
+          for package in "${packages[@]}"; do
+            dotnet nuget push "$package" \
+              --source github \
+              --api-key "${{ secrets.GITHUB_TOKEN }}" \
+              --skip-duplicate
+          done
 
       - name: Verify release package download from GitHub Packages
         run: |
@@ -149,4 +169,5 @@ jobs:
           name: v${{ env.PACKAGE_VERSION }}
           target_commitish: ${{ github.sha }}
           generate_release_notes: true
+          fail_on_unmatched_files: true
           files: artifacts/*.nupkg
