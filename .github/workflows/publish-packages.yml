@@ -55,7 +55,7 @@ jobs:
         run: echo "PACKAGE_VERSION=0.1.0-pr.${{ github.event.pull_request.number }}.${{ github.run_number }}" >> $GITHUB_ENV
 
       - name: Pack prerelease
-        run: dotnet pack src/SelfEvolving.Framework/SelfEvolving.Framework.csproj --configuration Release -p:PackageVersion=${{ env.PACKAGE_VERSION }} --no-restore --output artifacts
+        run: dotnet pack src/SelfEvolving.Framework/SelfEvolving.Framework.csproj --configuration Release -p:PackageVersion=${{ env.PACKAGE_VERSION }} -p:GeneratePackageOnBuild=false --output artifacts
 
       - name: Publish prerelease to GitHub Packages
         run: |
@@ -89,7 +89,7 @@ jobs:
         run: echo "PACKAGE_VERSION=0.1.${{ github.run_number }}" >> $GITHUB_ENV
 
       - name: Pack release
-        run: dotnet pack src/SelfEvolving.Framework/SelfEvolving.Framework.csproj --configuration Release -p:PackageVersion=${{ env.PACKAGE_VERSION }} --no-restore --output artifacts
+        run: dotnet pack src/SelfEvolving.Framework/SelfEvolving.Framework.csproj --configuration Release -p:PackageVersion=${{ env.PACKAGE_VERSION }} -p:GeneratePackageOnBuild=false --output artifacts
 
       - name: Publish release to GitHub Packages
         run: |
