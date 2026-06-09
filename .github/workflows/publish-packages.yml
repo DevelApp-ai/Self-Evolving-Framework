@@ -61,20 +61,28 @@ jobs:
       - name: Resolve prerelease package file
         run: |
           shopt -s nullglob
-          for candidate in artifacts/*.nupkg; do
+          packages=(artifacts/*.nupkg)
+          if [ "${#packages[@]}" -eq 0 ]; then
+            echo "No package artifacts were produced for prerelease publishing."
+            ls -la artifacts || true
+            exit 1
+          fi
+
+          for candidate in "${packages[@]}"; do
             if [ "${candidate##*/}" = "package.nupkg" ]; then
               echo "Refusing generic package artifact name: $candidate"
               exit 1
             fi
           done
 
-          package_file="artifacts/DevelApp.SelfEvolvingFramework.${{ env.PACKAGE_VERSION }}.nupkg"
-          if [ ! -f "$package_file" ]; then
-            echo "Expected package not found: $package_file"
+          if [ "${#packages[@]}" -ne 1 ]; then
+            echo "Expected exactly one package artifact but found ${#packages[@]}."
             echo "Produced artifacts:"
             ls -la artifacts || true
             exit 1
           fi
+
+          package_file="${packages[0]}"
           echo "PACKAGE_FILE=$package_file" >> $GITHUB_ENV
 
       - name: Publish prerelease to GitHub Packages
@@ -132,20 +140,28 @@ jobs:
       - name: Resolve release package file
         run: |
           shopt -s nullglob
-          for candidate in artifacts/*.nupkg; do
+          packages=(artifacts/*.nupkg)
+          if [ "${#packages[@]}" -eq 0 ]; then
+            echo "No package artifacts were produced for release publishing."
+            ls -la artifacts || true
+            exit 1
+          fi
+
+          for candidate in "${packages[@]}"; do
             if [ "${candidate##*/}" = "package.nupkg" ]; then
               echo "Refusing generic package artifact name: $candidate"
               exit 1
             fi
           done
 
-          package_file="artifacts/DevelApp.SelfEvolvingFramework.${{ env.PACKAGE_VERSION }}.nupkg"
-          if [ ! -f "$package_file" ]; then
-            echo "Expected package not found: $package_file"
+          if [ "${#packages[@]}" -ne 1 ]; then
+            echo "Expected exactly one package artifact but found ${#packages[@]}."
             echo "Produced artifacts:"
             ls -la artifacts || true
             exit 1
           fi
+
+          package_file="${packages[0]}"
           echo "PACKAGE_FILE=$package_file" >> $GITHUB_ENV
 
       - name: Publish release to GitHub Packages
