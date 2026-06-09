@@ -41,6 +41,6 @@ The library is configured as a NuGet package with `GeneratePackageOnBuild=true`.
 
 ## Versioning and publishing
 
-- Pull requests targeting `main` produce prerelease packages with semantic versions like `0.1.0-pr.<pr>.<run>` and publish to GitHub Packages.
-- Pushes to `main` produce release packages with semantic versions like `0.1.<run>` and publish to GitHub Packages.
+- Pull requests targeting `main` produce prerelease packages with semantic versions like `1.0.0-pr.<pr>.<run>` and publish to GitHub Packages.
+- Pushes to `main` produce release packages with semantic version `1.0.0` and publish to GitHub Packages.
 - If `NUGET_API_KEY` is configured in repository secrets, the same `main` release package is also published to NuGet.org.
