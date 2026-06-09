@@ -159,8 +159,14 @@ jobs:
           done
 
       - name: Publish release to NuGet.org
+        id: publish_nuget
         if: ${{ env.NUGET_API_KEY != '' }}
+        continue-on-error: true
         run: dotnet nuget push "artifacts/*.nupkg" --source https://api.nuget.org/v3/index.json --api-key "${{ env.NUGET_API_KEY }}" --skip-duplicate
+
+      - name: Warn when NuGet.org publish fails
+        if: ${{ steps.publish_nuget.outcome == 'failure' }}
+        run: echo "::warning::NuGet.org publish failed. Verify NUGET_API_KEY and package ownership on NuGet.org."
 
       - name: Create or update GitHub Release
         uses: softprops/action-gh-release@v2
