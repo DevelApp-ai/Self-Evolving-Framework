@@ -13,7 +13,6 @@ permissions:
 
 env:
   NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
-  STABLE_VERSION: 1.0.0
 
 jobs:
   build-test:
@@ -21,6 +20,9 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
 
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
@@ -28,13 +30,13 @@ jobs:
           dotnet-version: 8.0.x
 
       - name: Restore
-        run: dotnet restore SelfEvolving.Framework.slnx
+        run: dotnet restore SelfEvolvingFramework.slnx
 
       - name: Build
-        run: dotnet build SelfEvolving.Framework.slnx --configuration Release --no-restore
+        run: dotnet build SelfEvolvingFramework.slnx --configuration Release --no-restore
 
       - name: Test
-        run: dotnet test SelfEvolving.Framework.slnx --configuration Release --no-build
+        run: dotnet test SelfEvolvingFramework.slnx --configuration Release --no-build
 
   package-prerelease:
     if: github.event_name == 'pull_request'
@@ -53,32 +55,52 @@ jobs:
           dotnet-version: 8.0.x
 
       - name: Compute prerelease version
-        run: echo "PACKAGE_VERSION=${{ env.STABLE_VERSION }}-pr.${{ github.event.pull_request.number }}.${{ github.run_number }}" >> $GITHUB_ENV
+        run: |
+          base_version="$(bash scripts/compute-next-semver.sh)"
+          echo "PACKAGE_VERSION=${base_version}-pr.${{ github.event.pull_request.number }}.${{ github.run_number }}" >> $GITHUB_ENV
 
       - name: Pack prerelease
-        run: dotnet pack src/SelfEvolving.Framework/SelfEvolving.Framework.csproj --configuration Release -p:PackageVersion=${{ env.PACKAGE_VERSION }} -p:GeneratePackageOnBuild=false --output artifacts
+        run: dotnet pack src/SelfEvolvingFramework/SelfEvolvingFramework.csproj --configuration Release -p:PackageVersion=${{ env.PACKAGE_VERSION }} -p:GeneratePackageOnBuild=false --output artifacts
 
-      - name: Publish prerelease to GitHub Packages
+      - name: Resolve prerelease package file
         run: |
           shopt -s nullglob
           packages=(artifacts/*.nupkg)
           if [ "${#packages[@]}" -eq 0 ]; then
             echo "No package artifacts were produced for prerelease publishing."
+            ls -la artifacts || true
             exit 1
           fi
 
+          for candidate in "${packages[@]}"; do
+            if [ "${candidate##*/}" = "package.nupkg" ]; then
+              echo "Refusing generic package artifact name: $candidate"
+              exit 1
+            fi
+          done
+
+          if [ "${#packages[@]}" -ne 1 ]; then
+            echo "Expected exactly one package artifact but found ${#packages[@]}."
+            echo "Produced artifacts:"
+            ls -la artifacts || true
+            exit 1
+          fi
+
+          package_file="${packages[0]}"
+          echo "PACKAGE_FILE=$package_file" >> $GITHUB_ENV
+
+      - name: Publish prerelease to GitHub Packages
+        run: |
           dotnet nuget add source "https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json" \
             --name github \
             --username "${{ github.repository_owner }}" \
             --password "${{ secrets.GITHUB_TOKEN }}" \
             --store-password-in-clear-text
 
-          for package in "${packages[@]}"; do
-            dotnet nuget push "$package" \
-              --source github \
-              --api-key "${{ secrets.GITHUB_TOKEN }}" \
-              --skip-duplicate
-          done
+          dotnet nuget push "${{ env.PACKAGE_FILE }}" \
+            --source github \
+            --api-key "${{ secrets.GITHUB_TOKEN }}" \
+            --skip-duplicate
 
       - name: Verify prerelease package download from GitHub Packages
         run: |
@@ -107,6 +129,9 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
 
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
@@ -114,32 +139,50 @@ jobs:
           dotnet-version: 8.0.x
 
       - name: Compute release version
-        run: echo "PACKAGE_VERSION=${{ env.STABLE_VERSION }}" >> $GITHUB_ENV
+        run: echo "PACKAGE_VERSION=$(bash scripts/compute-next-semver.sh)" >> $GITHUB_ENV
 
       - name: Pack release
-        run: dotnet pack src/SelfEvolving.Framework/SelfEvolving.Framework.csproj --configuration Release -p:PackageVersion=${{ env.PACKAGE_VERSION }} -p:GeneratePackageOnBuild=false --output artifacts
+        run: dotnet pack src/SelfEvolvingFramework/SelfEvolvingFramework.csproj --configuration Release -p:PackageVersion=${{ env.PACKAGE_VERSION }} -p:GeneratePackageOnBuild=false --output artifacts
 
-      - name: Publish release to GitHub Packages
+      - name: Resolve release package file
         run: |
           shopt -s nullglob
           packages=(artifacts/*.nupkg)
           if [ "${#packages[@]}" -eq 0 ]; then
             echo "No package artifacts were produced for release publishing."
+            ls -la artifacts || true
             exit 1
           fi
 
+          for candidate in "${packages[@]}"; do
+            if [ "${candidate##*/}" = "package.nupkg" ]; then
+              echo "Refusing generic package artifact name: $candidate"
+              exit 1
+            fi
+          done
+
+          if [ "${#packages[@]}" -ne 1 ]; then
+            echo "Expected exactly one package artifact but found ${#packages[@]}."
+            echo "Produced artifacts:"
+            ls -la artifacts || true
+            exit 1
+          fi
+
+          package_file="${packages[0]}"
+          echo "PACKAGE_FILE=$package_file" >> $GITHUB_ENV
+
+      - name: Publish release to GitHub Packages
+        run: |
           dotnet nuget add source "https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json" \
             --name github \
             --username "${{ github.repository_owner }}" \
             --password "${{ secrets.GITHUB_TOKEN }}" \
             --store-password-in-clear-text
 
-          for package in "${packages[@]}"; do
-            dotnet nuget push "$package" \
-              --source github \
-              --api-key "${{ secrets.GITHUB_TOKEN }}" \
-              --skip-duplicate
-          done
+          dotnet nuget push "${{ env.PACKAGE_FILE }}" \
+            --source github \
+            --api-key "${{ secrets.GITHUB_TOKEN }}" \
+            --skip-duplicate
 
       - name: Verify release package download from GitHub Packages
         run: |
@@ -162,7 +205,7 @@ jobs:
         id: publish_nuget
         if: ${{ env.NUGET_API_KEY != '' }}
         continue-on-error: true
-        run: dotnet nuget push "artifacts/*.nupkg" --source https://api.nuget.org/v3/index.json --api-key "${{ env.NUGET_API_KEY }}" --skip-duplicate
+        run: dotnet nuget push "${{ env.PACKAGE_FILE }}" --source https://api.nuget.org/v3/index.json --api-key "${{ env.NUGET_API_KEY }}" --skip-duplicate
 
       - name: Warn when NuGet.org publish fails
         if: ${{ steps.publish_nuget.outcome == 'failure' }}
@@ -176,4 +219,4 @@ jobs:
           target_commitish: ${{ github.sha }}
           generate_release_notes: true
           fail_on_unmatched_files: true
-          files: artifacts/*.nupkg
+          files: ${{ env.PACKAGE_FILE }}

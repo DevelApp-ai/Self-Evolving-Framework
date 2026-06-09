@@ -1,0 +1,8 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/SelfEvolvingFramework/SelfEvolvingFramework.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/SelfEvolvingFramework.Tests/SelfEvolvingFramework.Tests.csproj" />
+  </Folder>
+</Solution>
