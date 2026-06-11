@@ -7,6 +7,11 @@ public sealed class IsolatedAssemblyExecutor : IIsolatedAssemblyExecutor
 {
     public async Task<ExecutionResult> ExecuteStaticAsync(byte[] assemblyBytes, string typeName, string methodName, TimeSpan timeout, CancellationToken cancellationToken = default)
     {
+        if (timeout <= TimeSpan.Zero)
+        {
+            return ExecutionResult.Failed(["Timeout must be greater than zero."]);
+        }
+
         WeakReference? weakReference = null;
 
         try
@@ -52,10 +57,27 @@ public sealed class IsolatedAssemblyExecutor : IIsolatedAssemblyExecutor
                    ?? throw new TypeLoadException($"Type '{typeName}' was not found.");
         var method = type.GetMethod(methodName, BindingFlags.Public | BindingFlags.Static)
                      ?? throw new MissingMethodException(typeName, methodName);
+        if (method.GetParameters().Length > 0)
+        {
+            throw new InvalidOperationException($"Method '{typeName}.{methodName}' must not declare parameters.");
+        }
 
-        var result = method.Invoke(null, null);
+        var invocationResult = method.Invoke(null, null);
+        var result = ResolveInvocationResult(invocationResult);
         context.Unload();
         return result;
+    }
+
+    private static object? ResolveInvocationResult(object? invocationResult)
+    {
+        if (invocationResult is not Task task)
+        {
+            return invocationResult;
+        }
+
+        task.GetAwaiter().GetResult();
+        var taskType = task.GetType();
+        return taskType.GetProperty("Result", BindingFlags.Public | BindingFlags.Instance)?.GetValue(task);
     }
 
     private static void ForceCollectUntilUnloaded(WeakReference weakReference)
