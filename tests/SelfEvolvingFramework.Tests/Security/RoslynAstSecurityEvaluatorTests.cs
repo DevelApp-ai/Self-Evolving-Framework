@@ -80,4 +80,39 @@ public sealed class RoslynAstSecurityEvaluatorTests
         Assert.False(result.IsAllowed);
         Assert.Contains(result.Violations, v => v.Contains("System.Text", StringComparison.Ordinal));
     }
+
+    [Fact]
+    public void Evaluate_Blocks_While_True_Loop()
+    {
+        var evaluator = new RoslynAstSecurityEvaluator();
+        const string source = "public static class Sample { public static void Run() { while (true) { } } }";
+
+        var result = evaluator.Evaluate(source);
+
+        Assert.False(result.IsAllowed);
+        Assert.Contains(result.Violations, v => v.Contains("Potential infinite loop", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void Evaluate_Blocks_For_Without_Condition_Loop()
+    {
+        var evaluator = new RoslynAstSecurityEvaluator();
+        const string source = "public static class Sample { public static void Run() { for (;;) { } } }";
+
+        var result = evaluator.Evaluate(source);
+
+        Assert.False(result.IsAllowed);
+        Assert.Contains(result.Violations, v => v.Contains("Potential infinite loop", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void Evaluate_Allows_Bounded_For_Loop()
+    {
+        var evaluator = new RoslynAstSecurityEvaluator();
+        const string source = "public static class Sample { public static int Run() { var sum = 0; for (var i = 0; i < 3; i++) { sum += i; } return sum; } }";
+
+        var result = evaluator.Evaluate(source);
+
+        Assert.True(result.IsAllowed);
+    }
 }

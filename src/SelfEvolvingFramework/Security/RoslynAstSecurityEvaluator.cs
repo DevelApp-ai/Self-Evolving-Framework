@@ -69,6 +69,30 @@ public sealed class RoslynAstSecurityEvaluator(AstSecurityOptions? options = nul
             }
         }
 
+        foreach (var whileStatement in root.DescendantNodes().OfType<WhileStatementSyntax>())
+        {
+            if (IsConstantTrue(whileStatement.Condition, semanticModel))
+            {
+                violations.Add("Potential infinite loop: while(true)");
+            }
+        }
+
+        foreach (var forStatement in root.DescendantNodes().OfType<ForStatementSyntax>())
+        {
+            if (forStatement.Condition is null || IsConstantTrue(forStatement.Condition, semanticModel))
+            {
+                violations.Add("Potential infinite loop: for");
+            }
+        }
+
+        foreach (var doStatement in root.DescendantNodes().OfType<DoStatementSyntax>())
+        {
+            if (IsConstantTrue(doStatement.Condition, semanticModel))
+            {
+                violations.Add("Potential infinite loop: do-while(true)");
+            }
+        }
+
         return violations.Count == 0
             ? SecurityEvaluationResult.Allowed()
             : SecurityEvaluationResult.Blocked(violations.Distinct(StringComparer.Ordinal));
@@ -92,6 +116,28 @@ public sealed class RoslynAstSecurityEvaluator(AstSecurityOptions? options = nul
     private static string Normalize(string value) => value.StartsWith("global::", StringComparison.Ordinal)
         ? value["global::".Length..]
         : value;
+
+    private static bool IsConstantTrue(ExpressionSyntax expression, SemanticModel? semanticModel)
+    {
+        var current = expression;
+        while (current is ParenthesizedExpressionSyntax parenthesized)
+        {
+            current = parenthesized.Expression;
+        }
+
+        if (current.IsKind(SyntaxKind.TrueLiteralExpression))
+        {
+            return true;
+        }
+
+        if (semanticModel is null)
+        {
+            return false;
+        }
+
+        var constantValue = semanticModel.GetConstantValue(current);
+        return constantValue.HasValue && constantValue.Value is true;
+    }
 
     private static SemanticModel? TryCreateSemanticModel(SyntaxTree tree)
     {
