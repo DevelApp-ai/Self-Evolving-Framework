@@ -16,7 +16,7 @@ Source: `docs/Evolving C# Program Design Specification.md`
 - [x] Add AST JSON serialization output for policy evaluation input
 - [x] Add OPA WebAssembly policy evaluation adapter
 - [x] Add default deny-list Rego policy package and fixtures
-- [ ] Add integration tests for policy-driven deny/allow scenarios
+- [x] Add integration tests for policy-driven deny/allow scenarios
 
 ## Phase 3 — Generative mutation/crossover
 
