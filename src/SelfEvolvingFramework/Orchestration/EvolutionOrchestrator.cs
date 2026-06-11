@@ -10,9 +10,13 @@ public sealed class EvolutionOrchestrator(
     IFitnessEvaluator fitnessEvaluator,
     IEvolutionMutator mutator)
 {
-    public async Task<EvolutionResult> EvolveOnceAsync(CandidateProgram seed, CancellationToken cancellationToken = default)
+    public async Task<EvolutionResult> EvolveOnceAsync(
+        CandidateProgram seed,
+        IReadOnlyList<string>? feedback = null,
+        CancellationToken cancellationToken = default)
     {
-        var mutated = await mutator.MutateAsync(seed, [], cancellationToken);
+        var mutationFeedback = feedback ?? [];
+        var mutated = await mutator.MutateAsync(seed, mutationFeedback, cancellationToken);
 
         var security = securityEvaluator.Evaluate(mutated.SourceCode);
         if (!security.IsAllowed)

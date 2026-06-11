@@ -57,10 +57,38 @@ public sealed class EvolutionOrchestratorTests
         Assert.Equal(0, fitnessEvaluator.CallCount);
     }
 
+    [Fact]
+    public async Task EvolveOnceAsync_Forwards_Feedback_To_Mutator()
+    {
+        var fitnessEvaluator = new ConstantFitnessEvaluator(1);
+        var mutator = new CapturingMutator("public static class Runner { public static int Execute() => 1; }");
+        var orchestrator = new EvolutionOrchestrator(
+            new RoslynAstSecurityEvaluator(),
+            new RoslynDynamicCompilationService(),
+            fitnessEvaluator,
+            mutator);
+
+        var feedback = new[] { "compiler error", "security warning" };
+        _ = await orchestrator.EvolveOnceAsync(new CandidateProgram("public static class Seed{}"), feedback);
+
+        Assert.Equal(feedback, mutator.LastFeedback);
+    }
+
     private sealed class ConstantMutator(string sourceCode) : IEvolutionMutator
     {
         public Task<CandidateProgram> MutateAsync(CandidateProgram candidate, IReadOnlyList<string> feedback, CancellationToken cancellationToken = default)
             => Task.FromResult(new CandidateProgram(sourceCode, candidate.Id));
+    }
+
+    private sealed class CapturingMutator(string sourceCode) : IEvolutionMutator
+    {
+        public IReadOnlyList<string> LastFeedback { get; private set; } = [];
+
+        public Task<CandidateProgram> MutateAsync(CandidateProgram candidate, IReadOnlyList<string> feedback, CancellationToken cancellationToken = default)
+        {
+            LastFeedback = feedback;
+            return Task.FromResult(new CandidateProgram(sourceCode, candidate.Id));
+        }
     }
 
     private sealed class ConstantFitnessEvaluator(double fitness) : IFitnessEvaluator
