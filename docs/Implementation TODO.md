@@ -14,7 +14,7 @@ Source: `docs/Evolving C# Program Design Specification.md`
 ## Phase 2 — Security hardening
 
 - [x] Add AST JSON serialization output for policy evaluation input
-- [ ] Add OPA WebAssembly policy evaluation adapter
+- [x] Add OPA WebAssembly policy evaluation adapter
 - [ ] Add default deny-list Rego policy package and fixtures
 - [ ] Add integration tests for policy-driven deny/allow scenarios
 
