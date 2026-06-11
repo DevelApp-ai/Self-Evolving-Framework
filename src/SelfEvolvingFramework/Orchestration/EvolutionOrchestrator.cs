@@ -15,7 +15,7 @@ public sealed class EvolutionOrchestrator(
         IReadOnlyList<string>? feedback = null,
         CancellationToken cancellationToken = default)
     {
-        var mutationFeedback = feedback ?? [];
+        var mutationFeedback = feedback is null or { Count: 0 } ? Array.Empty<string>() : feedback.ToArray();
         var mutated = await mutator.MutateAsync(seed, mutationFeedback, cancellationToken);
 
         var security = securityEvaluator.Evaluate(mutated.SourceCode);

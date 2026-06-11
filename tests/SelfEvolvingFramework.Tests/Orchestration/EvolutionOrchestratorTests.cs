@@ -74,6 +74,40 @@ public sealed class EvolutionOrchestratorTests
         Assert.Equal(feedback, mutator.LastFeedback);
     }
 
+    [Fact]
+    public async Task EvolveOnceAsync_Forwards_Empty_Feedback_When_Null()
+    {
+        var fitnessEvaluator = new ConstantFitnessEvaluator(1);
+        var mutator = new CapturingMutator("public static class Runner { public static int Execute() => 1; }");
+        var orchestrator = new EvolutionOrchestrator(
+            new RoslynAstSecurityEvaluator(),
+            new RoslynDynamicCompilationService(),
+            fitnessEvaluator,
+            mutator);
+
+        _ = await orchestrator.EvolveOnceAsync(new CandidateProgram("public static class Seed{}"), null);
+
+        Assert.Empty(mutator.LastFeedback);
+    }
+
+    [Fact]
+    public async Task EvolveOnceAsync_Forwards_Feedback_Snapshot_To_Mutator()
+    {
+        var fitnessEvaluator = new ConstantFitnessEvaluator(1);
+        var mutator = new CapturingMutator("public static class Runner { public static int Execute() => 1; }");
+        var orchestrator = new EvolutionOrchestrator(
+            new RoslynAstSecurityEvaluator(),
+            new RoslynDynamicCompilationService(),
+            fitnessEvaluator,
+            mutator);
+
+        var feedback = new List<string> { "compiler error", "security warning" };
+        _ = await orchestrator.EvolveOnceAsync(new CandidateProgram("public static class Seed{}"), feedback);
+
+        Assert.Equal(feedback, mutator.LastFeedback);
+        Assert.False(ReferenceEquals(feedback, mutator.LastFeedback));
+    }
+
     private sealed class ConstantMutator(string sourceCode) : IEvolutionMutator
     {
         public Task<CandidateProgram> MutateAsync(CandidateProgram candidate, IReadOnlyList<string> feedback, CancellationToken cancellationToken = default)
