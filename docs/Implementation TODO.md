@@ -28,7 +28,7 @@ Source: `docs/Evolving C# Program Design Specification.md`
 ## Phase 4 — Evolution engine
 
 - [x] Integrate GeneticSharp population lifecycle
-- [ ] Add chromosome model for source-code candidates
+- [x] Add chromosome model for source-code candidates
 - [ ] Add selection strategy configuration (elite/tournament)
 - [ ] Add adaptive mutation-rate strategy hooks
 

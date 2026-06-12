@@ -27,7 +27,7 @@ public sealed class GeneticSharpEvolutionEngine(
         var population = new Population(
             effectiveOptions.MinPopulationSize,
             effectiveOptions.MaxPopulationSize,
-            new CandidateChromosome(seed));
+            new SourceCodeCandidateChromosome(seed));
 
         var engineCrossover = new EvolutionCrossoverAdapter(crossover, cancellationToken);
         var engineMutation = new EvolutionMutationAdapter(mutator, cancellationToken);
@@ -47,7 +47,7 @@ public sealed class GeneticSharpEvolutionEngine(
 
         await Task.Run(algorithm.Start, cancellationToken);
 
-        return algorithm.BestChromosome is CandidateChromosome best
+        return algorithm.BestChromosome is SourceCodeCandidateChromosome best
             ? best.Candidate
             : seed;
     }
@@ -80,48 +80,6 @@ public sealed class GeneticSharpEvolutionEngine(
         }
     }
 
-    private sealed class CandidateChromosome : ChromosomeBase
-    {
-        public CandidateChromosome(CandidateProgram candidate) : base(2)
-        {
-            SetCandidate(candidate);
-        }
-
-        public CandidateProgram Candidate { get; private set; } = null!;
-
-        public override Gene GenerateGene(int geneIndex)
-        {
-            if (geneIndex is < 0 or > 1)
-            {
-                throw new ArgumentOutOfRangeException(nameof(geneIndex));
-            }
-
-            return new Gene(Candidate.SourceCode);
-        }
-
-        public override IChromosome CreateNew()
-            => new CandidateChromosome(Candidate);
-
-        public override IChromosome Clone()
-        {
-            var clone = new CandidateChromosome(Candidate)
-            {
-                Fitness = Fitness
-            };
-
-            clone.ReplaceGene(0, GetGene(0));
-            clone.ReplaceGene(1, GetGene(1));
-            return clone;
-        }
-
-        public void SetCandidate(CandidateProgram candidateProgram)
-        {
-            Candidate = candidateProgram;
-            ReplaceGene(0, new Gene(candidateProgram.SourceCode));
-            ReplaceGene(1, new Gene(candidateProgram.SourceCode));
-        }
-    }
-
     private sealed class EvolutionFitnessAdapter(
         IFitnessEvaluator fitnessEvaluator,
         CancellationToken cancellationToken) : IFitness
@@ -129,7 +87,7 @@ public sealed class GeneticSharpEvolutionEngine(
         public double Evaluate(IChromosome chromosome)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            var candidateChromosome = chromosome as CandidateChromosome
+            var candidateChromosome = chromosome as SourceCodeCandidateChromosome
                 ?? throw new ArgumentException("Chromosome must be a candidate chromosome.", nameof(chromosome));
             return fitnessEvaluator.EvaluateAsync(candidateChromosome.Candidate, cancellationToken).GetAwaiter().GetResult();
         }
@@ -147,7 +105,7 @@ public sealed class GeneticSharpEvolutionEngine(
                 return;
             }
 
-            var candidateChromosome = chromosome as CandidateChromosome
+            var candidateChromosome = chromosome as SourceCodeCandidateChromosome
                 ?? throw new ArgumentException("Chromosome must be a candidate chromosome.", nameof(chromosome));
             var mutated = mutator.MutateAsync(candidateChromosome.Candidate, [], cancellationToken).GetAwaiter().GetResult();
             candidateChromosome.SetCandidate(mutated);
@@ -161,12 +119,12 @@ public sealed class GeneticSharpEvolutionEngine(
         protected override IList<IChromosome> PerformCross(IList<IChromosome> parents)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            var parentA = parents[0] as CandidateChromosome
+            var parentA = parents[0] as SourceCodeCandidateChromosome
                 ?? throw new ArgumentException("Parent chromosome must be a candidate chromosome.", nameof(parents));
-            var parentB = parents[1] as CandidateChromosome
+            var parentB = parents[1] as SourceCodeCandidateChromosome
                 ?? throw new ArgumentException("Parent chromosome must be a candidate chromosome.", nameof(parents));
             var child = crossover.CrossoverAsync(parentA.Candidate, parentB.Candidate, cancellationToken).GetAwaiter().GetResult();
-            return [new CandidateChromosome(child)];
+            return [new SourceCodeCandidateChromosome(child)];
         }
     }
 }
