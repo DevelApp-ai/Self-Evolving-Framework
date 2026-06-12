@@ -15,7 +15,8 @@ public sealed record GeneticSharpEvolutionEngineOptions(
     int MaxGenerations = 3,
     GeneticSharpSelectionStrategy SelectionStrategy = GeneticSharpSelectionStrategy.Elite,
     float CrossoverProbability = GeneticAlgorithm.DefaultCrossoverProbability,
-    float MutationProbability = GeneticAlgorithm.DefaultMutationProbability);
+    float MutationProbability = GeneticAlgorithm.DefaultMutationProbability,
+    Func<int, int, float, float>? MutationRateStrategyHook = null);
 
 public sealed class GeneticSharpEvolutionEngine(
     IFitnessEvaluator fitnessEvaluator,
@@ -51,6 +52,24 @@ public sealed class GeneticSharpEvolutionEngine(
             MutationProbability = effectiveOptions.MutationProbability,
             Termination = new GenerationNumberTermination(effectiveOptions.MaxGenerations)
         };
+
+        if (effectiveOptions.MutationRateStrategyHook is { } mutationRateStrategyHook)
+        {
+            algorithm.GenerationRan += (_, _) =>
+            {
+                var nextMutationProbability = mutationRateStrategyHook(
+                    algorithm.GenerationsNumber,
+                    effectiveOptions.MaxGenerations,
+                    algorithm.MutationProbability);
+
+                if (nextMutationProbability is < 0 or > 1)
+                {
+                    throw new InvalidOperationException("Mutation rate strategy hook must return a value in the range [0, 1].");
+                }
+
+                algorithm.MutationProbability = nextMutationProbability;
+            };
+        }
 
         await Task.Run(algorithm.Start, cancellationToken);
 

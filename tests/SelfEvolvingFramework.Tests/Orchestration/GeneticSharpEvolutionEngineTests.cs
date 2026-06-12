@@ -76,6 +76,53 @@ public sealed class GeneticSharpEvolutionEngineTests
             new GeneticSharpEvolutionEngineOptions(SelectionStrategy: (GeneticSharpSelectionStrategy)999)));
     }
 
+    [Fact]
+    public async Task EvolveAsync_Invokes_Mutation_Rate_Strategy_Hook()
+    {
+        var mutationRateCalls = new List<(int Generation, int MaxGenerations, float CurrentProbability)>();
+        var mutator = new RecordingMutator();
+        var fitness = new ScoreBySourceFitnessEvaluator();
+        var engine = new GeneticSharpEvolutionEngine(fitness, mutator, new PassthroughCrossover());
+        var seed = new CandidateProgram("public static class Runner { public static int Execute() => 1; }");
+
+        var best = await engine.EvolveAsync(
+            seed,
+            new GeneticSharpEvolutionEngineOptions(
+                MinPopulationSize: 4,
+                MaxPopulationSize: 4,
+                MaxGenerations: 2,
+                CrossoverProbability: 0,
+                MutationProbability: 1,
+                MutationRateStrategyHook: (generation, maxGenerations, currentProbability) =>
+                {
+                    mutationRateCalls.Add((generation, maxGenerations, currentProbability));
+                    return generation >= 1 ? 0 : currentProbability;
+                }));
+
+        Assert.NotNull(best);
+        Assert.NotEmpty(mutationRateCalls);
+        Assert.All(mutationRateCalls, call => Assert.Equal(2, call.MaxGenerations));
+    }
+
+    [Fact]
+    public async Task EvolveAsync_Throws_When_Mutation_Rate_Hook_Returns_Out_Of_Range()
+    {
+        var engine = new GeneticSharpEvolutionEngine(
+            new ScoreBySourceFitnessEvaluator(),
+            new RecordingMutator(),
+            new PassthroughCrossover());
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => engine.EvolveAsync(
+            new CandidateProgram("public static class Runner { public static int Execute() => 1; }"),
+            new GeneticSharpEvolutionEngineOptions(
+                MinPopulationSize: 4,
+                MaxPopulationSize: 4,
+                MaxGenerations: 1,
+                CrossoverProbability: 0,
+                MutationProbability: 1,
+                MutationRateStrategyHook: (_, _, _) => -0.1f)));
+    }
+
     private sealed class RecordingMutator : IEvolutionMutator
     {
         public int CallCount { get; private set; }

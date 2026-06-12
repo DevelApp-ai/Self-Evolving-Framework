@@ -30,7 +30,7 @@ Source: `docs/Evolving C# Program Design Specification.md`
 - [x] Integrate GeneticSharp population lifecycle
 - [x] Add chromosome model for source-code candidates
 - [x] Add selection strategy configuration (elite/tournament)
-- [ ] Add adaptive mutation-rate strategy hooks
+- [x] Add adaptive mutation-rate strategy hooks
 
 ## Phase 5 — Behavioral validation
 
