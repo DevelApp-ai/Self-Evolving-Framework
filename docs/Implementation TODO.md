@@ -21,7 +21,7 @@ Source: `docs/Evolving C# Program Design Specification.md`
 ## Phase 3 — Generative mutation/crossover
 
 - [x] Add Semantic Kernel-backed mutator implementation
-- [ ] Add crossover abstraction and implementation
+- [x] Add crossover abstraction and implementation
 - [ ] Feed compiler/security/runtime diagnostics into mutation prompts
 - [ ] Add tests for deterministic prompt construction and response extraction
 
