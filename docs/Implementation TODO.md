@@ -42,4 +42,4 @@ Source: `docs/Evolving C# Program Design Specification.md`
 
 - [x] Add execution budget/timeout policy options on orchestration boundary
 - [x] Add cancellation/failure diagnostics propagation
-- [ ] Add performance/resource telemetry for evolution runs
+- [x] Add performance/resource telemetry for evolution runs

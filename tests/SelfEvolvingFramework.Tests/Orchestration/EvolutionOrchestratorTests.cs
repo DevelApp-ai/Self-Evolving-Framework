@@ -38,6 +38,11 @@ public sealed class EvolutionOrchestratorTests
         Assert.True(result.IsValid);
         Assert.Equal(9.5, result.Fitness);
         Assert.Equal(1, fitnessEvaluator.CallCount);
+        Assert.True(result.Telemetry.TotalDuration > TimeSpan.Zero);
+        Assert.Equal(0, result.Telemetry.DiagnosticCount);
+        Assert.False(result.Telemetry.CanceledByCaller);
+        Assert.False(result.Telemetry.TimedOut);
+        Assert.Equal(30000, result.Telemetry.ExecutionBudgetMilliseconds);
     }
 
     [Fact]
@@ -142,6 +147,32 @@ public sealed class EvolutionOrchestratorTests
         Assert.False(result.IsValid);
         Assert.Equal(double.NegativeInfinity, result.Fitness);
         Assert.Contains(result.Diagnostics, diagnostic => diagnostic.StartsWith("cancellation: Operation exceeded execution budget", StringComparison.Ordinal));
+        Assert.True(result.Telemetry.TimedOut);
+        Assert.False(result.Telemetry.CanceledByCaller);
+        Assert.Equal(result.Diagnostics.Count, result.Telemetry.DiagnosticCount);
+    }
+
+    [Fact]
+    public async Task EvolveOnceAsync_Reports_Caller_Cancellation_Telemetry()
+    {
+        using var cancellationTokenSource = new CancellationTokenSource();
+        await cancellationTokenSource.CancelAsync();
+
+        var orchestrator = new EvolutionOrchestrator(
+            new RoslynAstSecurityEvaluator(),
+            new RoslynDynamicCompilationService(),
+            new ConstantFitnessEvaluator(1),
+            new DelayingMutator(),
+            new EvolutionOrchestratorOptions(ExecutionBudgetMilliseconds: 1000));
+
+        var result = await orchestrator.EvolveOnceAsync(
+            new CandidateProgram("public static class Seed{}"),
+            cancellationToken: cancellationTokenSource.Token);
+
+        Assert.False(result.IsValid);
+        Assert.True(result.Telemetry.CanceledByCaller);
+        Assert.False(result.Telemetry.TimedOut);
+        Assert.Equal(result.Diagnostics.Count, result.Telemetry.DiagnosticCount);
     }
 
     [Fact]
