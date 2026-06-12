@@ -36,7 +36,7 @@ Source: `docs/Evolving C# Program Design Specification.md`
 
 - [x] Add Playwright-based post-compilation behavioral evaluator
 - [x] Add execution-flow derived fitness scoring
-- [ ] Add integration tests for browser-flow scoring and failure penalties
+- [x] Add integration tests for browser-flow scoring and failure penalties
 
 ## Phase 6 — Operational resilience
 
