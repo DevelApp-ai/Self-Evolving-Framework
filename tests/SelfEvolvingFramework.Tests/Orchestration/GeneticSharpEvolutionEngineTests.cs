@@ -41,6 +41,41 @@ public sealed class GeneticSharpEvolutionEngineTests
             new GeneticSharpEvolutionEngineOptions(MinPopulationSize: 1)));
     }
 
+    [Fact]
+    public async Task EvolveAsync_Supports_Tournament_Selection()
+    {
+        var mutator = new RecordingMutator();
+        var fitness = new ScoreBySourceFitnessEvaluator();
+        var engine = new GeneticSharpEvolutionEngine(fitness, mutator, new PassthroughCrossover());
+        var seed = new CandidateProgram("public static class Runner { public static int Execute() => 1; }");
+
+        var best = await engine.EvolveAsync(
+            seed,
+            new GeneticSharpEvolutionEngineOptions(
+                MinPopulationSize: 4,
+                MaxPopulationSize: 4,
+                MaxGenerations: 1,
+                SelectionStrategy: GeneticSharpSelectionStrategy.Tournament,
+                CrossoverProbability: 0,
+                MutationProbability: 0));
+
+        Assert.Equal(seed.SourceCode, best.SourceCode);
+        Assert.True(fitness.CallCount > 0);
+    }
+
+    [Fact]
+    public async Task EvolveAsync_Throws_For_Invalid_Selection_Strategy()
+    {
+        var engine = new GeneticSharpEvolutionEngine(
+            new ScoreBySourceFitnessEvaluator(),
+            new RecordingMutator(),
+            new PassthroughCrossover());
+
+        await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() => engine.EvolveAsync(
+            new CandidateProgram("public static class Runner { }"),
+            new GeneticSharpEvolutionEngineOptions(SelectionStrategy: (GeneticSharpSelectionStrategy)999)));
+    }
+
     private sealed class RecordingMutator : IEvolutionMutator
     {
         public int CallCount { get; private set; }

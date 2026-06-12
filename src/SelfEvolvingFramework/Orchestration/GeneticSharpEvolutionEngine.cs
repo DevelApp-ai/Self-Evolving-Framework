@@ -3,10 +3,17 @@ using SelfEvolvingFramework.Core;
 
 namespace SelfEvolvingFramework.Orchestration;
 
+public enum GeneticSharpSelectionStrategy
+{
+    Elite,
+    Tournament
+}
+
 public sealed record GeneticSharpEvolutionEngineOptions(
     int MinPopulationSize = 4,
     int MaxPopulationSize = 8,
     int MaxGenerations = 3,
+    GeneticSharpSelectionStrategy SelectionStrategy = GeneticSharpSelectionStrategy.Elite,
     float CrossoverProbability = GeneticAlgorithm.DefaultCrossoverProbability,
     float MutationProbability = GeneticAlgorithm.DefaultMutationProbability);
 
@@ -36,7 +43,7 @@ public sealed class GeneticSharpEvolutionEngine(
         var algorithm = new GeneticAlgorithm(
             population,
             engineFitness,
-            new EliteSelection(),
+            CreateSelection(effectiveOptions.SelectionStrategy),
             engineCrossover,
             engineMutation)
         {
@@ -78,7 +85,20 @@ public sealed class GeneticSharpEvolutionEngine(
         {
             throw new ArgumentOutOfRangeException(nameof(options), "Mutation probability must be in the range [0, 1].");
         }
+
+        if (!Enum.IsDefined(options.SelectionStrategy))
+        {
+            throw new ArgumentOutOfRangeException(nameof(options), "Selection strategy is not supported.");
+        }
     }
+
+    private static ISelection CreateSelection(GeneticSharpSelectionStrategy selectionStrategy)
+        => selectionStrategy switch
+        {
+            GeneticSharpSelectionStrategy.Elite => new EliteSelection(),
+            GeneticSharpSelectionStrategy.Tournament => new TournamentSelection(),
+            _ => throw new ArgumentOutOfRangeException(nameof(selectionStrategy), selectionStrategy, "Selection strategy is not supported.")
+        };
 
     private sealed class EvolutionFitnessAdapter(
         IFitnessEvaluator fitnessEvaluator,
