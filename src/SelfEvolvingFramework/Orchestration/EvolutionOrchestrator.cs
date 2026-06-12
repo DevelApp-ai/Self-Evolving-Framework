@@ -27,7 +27,19 @@ public sealed class EvolutionOrchestrator(
         budgetCancellation.CancelAfter(TimeSpan.FromMilliseconds(_options.ExecutionBudgetMilliseconds));
 
         var mutationFeedback = feedback is null or { Count: 0 } ? Array.Empty<string>() : feedback.ToArray();
-        var mutated = await mutator.MutateAsync(seed, mutationFeedback, budgetCancellation.Token);
+        CandidateProgram mutated;
+        try
+        {
+            mutated = await mutator.MutateAsync(seed, mutationFeedback, budgetCancellation.Token);
+        }
+        catch (OperationCanceledException)
+        {
+            return new EvolutionResult(seed, false, double.NegativeInfinity, GetCancellationDiagnostics(cancellationToken));
+        }
+        catch (Exception ex)
+        {
+            return new EvolutionResult(seed, false, double.NegativeInfinity, PrefixDiagnostics("mutation", [ex.Message]));
+        }
 
         var security = securityEvaluator.Evaluate(mutated.SourceCode);
         if (!security.IsAllowed)
@@ -41,10 +53,31 @@ public sealed class EvolutionOrchestrator(
             return new EvolutionResult(mutated, false, 0, PrefixDiagnostics("compiler", compilation.Diagnostics));
         }
 
-        var fitness = await fitnessEvaluator.EvaluateAsync(mutated, budgetCancellation.Token);
-        return new EvolutionResult(mutated, true, fitness, []);
+        try
+        {
+            var fitness = await fitnessEvaluator.EvaluateAsync(mutated, budgetCancellation.Token);
+            return new EvolutionResult(mutated, true, fitness, []);
+        }
+        catch (OperationCanceledException)
+        {
+            return new EvolutionResult(mutated, false, double.NegativeInfinity, GetCancellationDiagnostics(cancellationToken));
+        }
+        catch (Exception ex)
+        {
+            return new EvolutionResult(mutated, false, double.NegativeInfinity, PrefixDiagnostics("fitness", [ex.Message]));
+        }
     }
 
     private static IReadOnlyList<string> PrefixDiagnostics(string category, IReadOnlyList<string> diagnostics)
         => diagnostics.Select(diagnostic => $"{category}: {diagnostic}").ToArray();
+
+    private IReadOnlyList<string> GetCancellationDiagnostics(CancellationToken cancellationToken)
+    {
+        if (cancellationToken.IsCancellationRequested)
+        {
+            return ["cancellation: Operation canceled by caller."];
+        }
+
+        return [$"cancellation: Operation exceeded execution budget of {_options.ExecutionBudgetMilliseconds}ms."];
+    }
 }

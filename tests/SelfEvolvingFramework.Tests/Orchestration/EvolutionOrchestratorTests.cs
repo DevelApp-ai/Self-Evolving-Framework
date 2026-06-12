@@ -137,8 +137,11 @@ public sealed class EvolutionOrchestratorTests
             new DelayingMutator(),
             new EvolutionOrchestratorOptions(ExecutionBudgetMilliseconds: 25));
 
-        await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
-            orchestrator.EvolveOnceAsync(new CandidateProgram("public static class Seed{}")));
+        var result = await orchestrator.EvolveOnceAsync(new CandidateProgram("public static class Seed{}"));
+
+        Assert.False(result.IsValid);
+        Assert.Equal(double.NegativeInfinity, result.Fitness);
+        Assert.Contains(result.Diagnostics, diagnostic => diagnostic.StartsWith("cancellation: Operation exceeded execution budget", StringComparison.Ordinal));
     }
 
     [Fact]
@@ -155,6 +158,38 @@ public sealed class EvolutionOrchestratorTests
             orchestrator.EvolveOnceAsync(new CandidateProgram("public static class Seed{}")));
 
         Assert.Equal("options", exception.ParamName);
+    }
+
+    [Fact]
+    public async Task EvolveOnceAsync_Propagates_Mutation_Failure_Diagnostics()
+    {
+        var orchestrator = new EvolutionOrchestrator(
+            new RoslynAstSecurityEvaluator(),
+            new RoslynDynamicCompilationService(),
+            new ConstantFitnessEvaluator(1),
+            new ThrowingMutator());
+
+        var result = await orchestrator.EvolveOnceAsync(new CandidateProgram("public static class Seed{}"));
+
+        Assert.False(result.IsValid);
+        Assert.Equal(double.NegativeInfinity, result.Fitness);
+        Assert.Equal(["mutation: Mutation failed."], result.Diagnostics);
+    }
+
+    [Fact]
+    public async Task EvolveOnceAsync_Propagates_Fitness_Failure_Diagnostics()
+    {
+        var orchestrator = new EvolutionOrchestrator(
+            new RoslynAstSecurityEvaluator(),
+            new RoslynDynamicCompilationService(),
+            new ThrowingFitnessEvaluator(),
+            new ConstantMutator("public static class Runner { public static int Execute() => 1; }"));
+
+        var result = await orchestrator.EvolveOnceAsync(new CandidateProgram("public static class Seed{}"));
+
+        Assert.False(result.IsValid);
+        Assert.Equal(double.NegativeInfinity, result.Fitness);
+        Assert.Equal(["fitness: Fitness failed."], result.Diagnostics);
     }
 
     private sealed class ConstantMutator(string sourceCode) : IEvolutionMutator
@@ -185,6 +220,12 @@ public sealed class EvolutionOrchestratorTests
         }
     }
 
+    private sealed class ThrowingMutator : IEvolutionMutator
+    {
+        public Task<CandidateProgram> MutateAsync(CandidateProgram candidate, IReadOnlyList<string> feedback, CancellationToken cancellationToken = default)
+            => throw new InvalidOperationException("Mutation failed.");
+    }
+
     private sealed class ConstantFitnessEvaluator(double fitness) : IFitnessEvaluator
     {
         public int CallCount { get; private set; }
@@ -194,5 +235,11 @@ public sealed class EvolutionOrchestratorTests
             CallCount++;
             return Task.FromResult(fitness);
         }
+    }
+
+    private sealed class ThrowingFitnessEvaluator : IFitnessEvaluator
+    {
+        public Task<double> EvaluateAsync(CandidateProgram candidate, CancellationToken cancellationToken = default)
+            => throw new InvalidOperationException("Fitness failed.");
     }
 }
