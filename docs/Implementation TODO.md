@@ -34,7 +34,7 @@ Source: `docs/Evolving C# Program Design Specification.md`
 
 ## Phase 5 — Behavioral validation
 
-- [ ] Add Playwright-based post-compilation behavioral evaluator
+- [x] Add Playwright-based post-compilation behavioral evaluator
 - [ ] Add execution-flow derived fitness scoring
 - [ ] Add integration tests for browser-flow scoring and failure penalties
 
