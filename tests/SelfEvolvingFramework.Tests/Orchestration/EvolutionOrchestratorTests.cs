@@ -110,6 +110,53 @@ public sealed class EvolutionOrchestratorTests
         Assert.False(ReferenceEquals(feedback, mutator.LastFeedback));
     }
 
+    [Fact]
+    public async Task EvolveOnceAsync_Forwards_Budget_CancellationToken()
+    {
+        var fitnessEvaluator = new ConstantFitnessEvaluator(1);
+        var mutator = new CapturingMutator("public static class Runner { public static int Execute() => 1; }");
+        var orchestrator = new EvolutionOrchestrator(
+            new RoslynAstSecurityEvaluator(),
+            new RoslynDynamicCompilationService(),
+            fitnessEvaluator,
+            mutator,
+            new EvolutionOrchestratorOptions(ExecutionBudgetMilliseconds: 1000));
+
+        _ = await orchestrator.EvolveOnceAsync(new CandidateProgram("public static class Seed{}"));
+
+        Assert.True(mutator.LastCancellationToken.CanBeCanceled);
+    }
+
+    [Fact]
+    public async Task EvolveOnceAsync_Throws_When_Execution_Budget_Exceeded()
+    {
+        var orchestrator = new EvolutionOrchestrator(
+            new RoslynAstSecurityEvaluator(),
+            new RoslynDynamicCompilationService(),
+            new ConstantFitnessEvaluator(1),
+            new DelayingMutator(),
+            new EvolutionOrchestratorOptions(ExecutionBudgetMilliseconds: 25));
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
+            orchestrator.EvolveOnceAsync(new CandidateProgram("public static class Seed{}")));
+    }
+
+    [Fact]
+    public async Task EvolveOnceAsync_Throws_For_Invalid_Execution_Budget()
+    {
+        var orchestrator = new EvolutionOrchestrator(
+            new RoslynAstSecurityEvaluator(),
+            new RoslynDynamicCompilationService(),
+            new ConstantFitnessEvaluator(1),
+            new ConstantMutator("public static class Runner { public static int Execute() => 1; }"),
+            new EvolutionOrchestratorOptions(ExecutionBudgetMilliseconds: 0));
+
+        var exception = await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() =>
+            orchestrator.EvolveOnceAsync(new CandidateProgram("public static class Seed{}")));
+
+        Assert.Equal("options", exception.ParamName);
+    }
+
     private sealed class ConstantMutator(string sourceCode) : IEvolutionMutator
     {
         public Task<CandidateProgram> MutateAsync(CandidateProgram candidate, IReadOnlyList<string> feedback, CancellationToken cancellationToken = default)
@@ -119,11 +166,22 @@ public sealed class EvolutionOrchestratorTests
     private sealed class CapturingMutator(string sourceCode) : IEvolutionMutator
     {
         public IReadOnlyList<string> LastFeedback { get; private set; } = [];
+        public CancellationToken LastCancellationToken { get; private set; }
 
         public Task<CandidateProgram> MutateAsync(CandidateProgram candidate, IReadOnlyList<string> feedback, CancellationToken cancellationToken = default)
         {
             LastFeedback = feedback;
+            LastCancellationToken = cancellationToken;
             return Task.FromResult(new CandidateProgram(sourceCode, candidate.Id));
+        }
+    }
+
+    private sealed class DelayingMutator : IEvolutionMutator
+    {
+        public async Task<CandidateProgram> MutateAsync(CandidateProgram candidate, IReadOnlyList<string> feedback, CancellationToken cancellationToken = default)
+        {
+            await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken);
+            return candidate;
         }
     }
 

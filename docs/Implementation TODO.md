@@ -40,6 +40,6 @@ Source: `docs/Evolving C# Program Design Specification.md`
 
 ## Phase 6 — Operational resilience
 
-- [ ] Add execution budget/timeout policy options on orchestration boundary
+- [x] Add execution budget/timeout policy options on orchestration boundary
 - [ ] Add cancellation/failure diagnostics propagation
 - [ ] Add performance/resource telemetry for evolution runs
