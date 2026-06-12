@@ -1,5 +1,7 @@
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
+using Microsoft.CodeAnalysis;
+using System.Reflection;
 
 namespace SelfEvolvingFramework.Security;
 
@@ -12,6 +14,7 @@ public sealed class RoslynAstSecurityEvaluator(AstSecurityOptions? options = nul
         var tree = CSharpSyntaxTree.ParseText(sourceCode);
         var root = tree.GetRoot();
         var violations = new List<string>();
+        var semanticModel = TryCreateSemanticModel(tree);
 
         foreach (var usingDirective in root.DescendantNodes().OfType<UsingDirectiveSyntax>())
         {
@@ -21,7 +24,7 @@ public sealed class RoslynAstSecurityEvaluator(AstSecurityOptions? options = nul
                 continue;
             }
 
-            if (_options.RestrictedNamespaces.Any(restricted => ns.Equals(restricted, StringComparison.Ordinal) || ns.StartsWith(restricted + ".", StringComparison.Ordinal)))
+            if (IsRestrictedNamespace(ns))
             {
                 violations.Add($"Restricted namespace: {ns}");
             }
@@ -30,14 +33,140 @@ public sealed class RoslynAstSecurityEvaluator(AstSecurityOptions? options = nul
         foreach (var invocation in root.DescendantNodes().OfType<InvocationExpressionSyntax>())
         {
             var expression = invocation.Expression.ToString();
-            if (_options.RestrictedInvocations.Any(restricted => expression.StartsWith(restricted, StringComparison.Ordinal)))
+            if (IsRestrictedInvocation(expression))
             {
                 violations.Add($"Restricted invocation: {expression}");
+            }
+
+            if (semanticModel is not null)
+            {
+                var symbol = semanticModel.GetSymbolInfo(invocation).Symbol as IMethodSymbol;
+                var containingType = symbol?.ContainingType?.ToDisplayString();
+                if (containingType is not null && IsRestrictedInvocation(containingType))
+                {
+                    violations.Add($"Restricted invocation: {containingType}.{symbol!.Name}");
+                }
+            }
+        }
+
+        foreach (var objectCreation in root.DescendantNodes().OfType<ObjectCreationExpressionSyntax>())
+        {
+            var typeName = objectCreation.Type.ToString();
+            if (IsRestrictedNamespace(typeName) || IsRestrictedInvocation(typeName))
+            {
+                violations.Add($"Restricted type: {typeName}");
+                continue;
+            }
+
+            if (semanticModel is not null)
+            {
+                var symbol = semanticModel.GetSymbolInfo(objectCreation).Symbol as IMethodSymbol;
+                var constructedType = symbol?.ContainingType?.ToDisplayString();
+                if (constructedType is not null && (IsRestrictedNamespace(constructedType) || IsRestrictedInvocation(constructedType)))
+                {
+                    violations.Add($"Restricted type: {constructedType}");
+                }
+            }
+        }
+
+        foreach (var whileStatement in root.DescendantNodes().OfType<WhileStatementSyntax>())
+        {
+            if (IsConstantTrue(whileStatement.Condition, semanticModel))
+            {
+                violations.Add("Potential infinite loop: while(true)");
+            }
+        }
+
+        foreach (var forStatement in root.DescendantNodes().OfType<ForStatementSyntax>())
+        {
+            if (forStatement.Condition is null || IsConstantTrue(forStatement.Condition, semanticModel))
+            {
+                violations.Add("Potential infinite loop: for");
+            }
+        }
+
+        foreach (var doStatement in root.DescendantNodes().OfType<DoStatementSyntax>())
+        {
+            if (IsConstantTrue(doStatement.Condition, semanticModel))
+            {
+                violations.Add("Potential infinite loop: do-while(true)");
             }
         }
 
         return violations.Count == 0
             ? SecurityEvaluationResult.Allowed()
             : SecurityEvaluationResult.Blocked(violations.Distinct(StringComparer.Ordinal));
+    }
+
+    private bool IsRestrictedNamespace(string candidate)
+    {
+        var normalized = Normalize(candidate);
+        return _options.RestrictedNamespaces.Any(restricted =>
+            normalized.Equals(restricted, StringComparison.Ordinal) ||
+            normalized.StartsWith(restricted + ".", StringComparison.Ordinal));
+    }
+
+    private bool IsRestrictedInvocation(string candidate)
+    {
+        var normalized = Normalize(candidate);
+        return _options.RestrictedInvocations.Any(restricted =>
+            normalized.StartsWith(restricted, StringComparison.Ordinal));
+    }
+
+    private static string Normalize(string value) => value.StartsWith("global::", StringComparison.Ordinal)
+        ? value["global::".Length..]
+        : value;
+
+    private static bool IsConstantTrue(ExpressionSyntax expression, SemanticModel? semanticModel)
+    {
+        var current = expression;
+        while (current is ParenthesizedExpressionSyntax parenthesized)
+        {
+            current = parenthesized.Expression;
+        }
+
+        if (current.IsKind(SyntaxKind.TrueLiteralExpression))
+        {
+            return true;
+        }
+
+        if (semanticModel is null)
+        {
+            return false;
+        }
+
+        var constantValue = semanticModel.GetConstantValue(current);
+        return constantValue.HasValue && constantValue.Value is true;
+    }
+
+    private static SemanticModel? TryCreateSemanticModel(SyntaxTree tree)
+    {
+        try
+        {
+            var references = new[]
+            {
+                typeof(object).Assembly,
+                typeof(Console).Assembly,
+                typeof(Enumerable).Assembly,
+                typeof(System.IO.File).Assembly,
+                typeof(System.Runtime.InteropServices.Marshal).Assembly,
+                Assembly.Load("System.Runtime")
+            }
+            .Distinct()
+            .Where(a => !string.IsNullOrWhiteSpace(a.Location))
+            .Select(a => MetadataReference.CreateFromFile(a.Location));
+
+            var compilation = CSharpCompilation.Create(
+                assemblyName: "SecurityAnalysis",
+                syntaxTrees: [tree],
+                references: references,
+                options: new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+
+            return compilation.GetSemanticModel(tree, ignoreAccessibility: true);
+        }
+        catch
+        {
+            return null;
+        }
     }
 }

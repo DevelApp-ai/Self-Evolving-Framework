@@ -1,0 +1,10 @@
+{
+  "Namespaces": [
+    "System.IO"
+  ],
+  "MethodCalls": [
+    "System.IO.File.ReadAllText"
+  ],
+  "ObjectCreations": [
+  ]
+}

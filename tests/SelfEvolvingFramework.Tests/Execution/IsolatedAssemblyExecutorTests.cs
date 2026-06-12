@@ -46,4 +46,32 @@ public sealed class IsolatedAssemblyExecutorTests
         Assert.False(result.Completed);
         Assert.Contains(result.Diagnostics, d => d.Contains("Missing", StringComparison.Ordinal));
     }
+
+    [Fact]
+    public async Task ExecuteStaticAsync_Awaits_Task_Returning_Method()
+    {
+        var compiler = new RoslynDynamicCompilationService();
+        var executor = new IsolatedAssemblyExecutor();
+        const string source = "using System.Threading.Tasks; public static class Runner { public static async Task<int> Execute() { await Task.Delay(20); return 11; } }";
+
+        var compiled = compiler.Compile(source);
+        var result = await executor.ExecuteStaticAsync(compiled.AssemblyBytes!, "Runner", "Execute", TimeSpan.FromSeconds(2));
+
+        Assert.True(result.Completed);
+        Assert.Equal(11, Assert.IsType<int>(result.ReturnValue));
+    }
+
+    [Fact]
+    public async Task ExecuteStaticAsync_Fails_For_Non_Positive_Timeout()
+    {
+        var compiler = new RoslynDynamicCompilationService();
+        var executor = new IsolatedAssemblyExecutor();
+        const string source = "public static class Runner { public static int Execute() => 7; }";
+
+        var compiled = compiler.Compile(source);
+        var result = await executor.ExecuteStaticAsync(compiled.AssemblyBytes!, "Runner", "Execute", TimeSpan.Zero);
+
+        Assert.False(result.Completed);
+        Assert.Contains(result.Diagnostics, d => d.Contains("greater than zero", StringComparison.OrdinalIgnoreCase));
+    }
 }

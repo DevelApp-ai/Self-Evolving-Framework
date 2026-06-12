@@ -2,6 +2,7 @@
 set -euo pipefail
 
 default_version="${DEFAULT_VERSION:-1.0.0}"
+bump_part="${SEMVER_BUMP:-patch}"
 
 if [[ "${TAG_LIST+x}" == "x" ]]; then
   tags="${TAG_LIST}"
@@ -22,4 +23,19 @@ if [[ -z "${latest_version}" ]]; then
 fi
 
 IFS='.' read -r major minor patch <<< "${latest_version}"
-echo "${major}.${minor}.$((patch + 1))"
+
+case "${bump_part}" in
+  patch)
+    echo "${major}.${minor}.$((patch + 1))"
+    ;;
+  minor)
+    echo "${major}.$((minor + 1)).0"
+    ;;
+  major)
+    echo "$((major + 1)).0.0"
+    ;;
+  *)
+    echo "Unsupported SEMVER_BUMP value: ${bump_part}. Expected one of: patch, minor, major." >&2
+    exit 1
+    ;;
+esac

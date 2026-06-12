@@ -16,11 +16,17 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="GeneticSharp" Version="3.1.4" />
     <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.10.0" />
+    <PackageReference Include="Microsoft.Playwright" Version="1.54.0" />
+    <PackageReference Include="Microsoft.SemanticKernel" Version="1.77.0" />
+    <PackageReference Include="OpaDotNet.Wasm" Version="3.1.0" />
   </ItemGroup>
 
   <ItemGroup>
     <None Include="../../README.md" Pack="true" PackagePath="\" />
+    <None Include="Security/Policies/**/*.rego" Pack="true" PackagePath="contentFiles/any/any/Security/Policies/" />
+    <None Include="Security/Policies/fixtures/**/*.json" Pack="true" PackagePath="contentFiles/any/any/Security/Policies/fixtures/" />
   </ItemGroup>
 
 </Project>

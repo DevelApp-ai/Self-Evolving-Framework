@@ -56,7 +56,7 @@ jobs:
 
       - name: Compute prerelease version
         run: |
-          base_version="$(bash scripts/compute-next-semver.sh)"
+          base_version="$(SEMVER_BUMP=minor bash scripts/compute-next-semver.sh)"
           echo "PACKAGE_VERSION=${base_version}-pr.${{ github.event.pull_request.number }}.${{ github.run_number }}" >> $GITHUB_ENV
 
       - name: Pack prerelease
@@ -139,7 +139,7 @@ jobs:
           dotnet-version: 8.0.x
 
       - name: Compute release version
-        run: echo "PACKAGE_VERSION=$(bash scripts/compute-next-semver.sh)" >> $GITHUB_ENV
+        run: echo "PACKAGE_VERSION=$(SEMVER_BUMP=minor bash scripts/compute-next-semver.sh)" >> $GITHUB_ENV
 
       - name: Pack release
         run: dotnet pack src/SelfEvolvingFramework/SelfEvolvingFramework.csproj --configuration Release -p:PackageVersion=${{ env.PACKAGE_VERSION }} -p:GeneratePackageOnBuild=false --output artifacts

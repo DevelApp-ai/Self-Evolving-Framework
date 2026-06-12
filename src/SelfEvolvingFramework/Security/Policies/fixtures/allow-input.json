@@ -1,0 +1,11 @@
+{
+  "Namespaces": [
+    "System.Text"
+  ],
+  "MethodCalls": [
+    "System.Console.WriteLine"
+  ],
+  "ObjectCreations": [
+    "System.Text.StringBuilder"
+  ]
+}
