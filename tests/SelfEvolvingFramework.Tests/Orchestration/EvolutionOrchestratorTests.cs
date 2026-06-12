@@ -20,6 +20,7 @@ public sealed class EvolutionOrchestratorTests
 
         Assert.False(result.IsValid);
         Assert.Equal(double.NegativeInfinity, result.Fitness);
+        Assert.All(result.Diagnostics, diagnostic => Assert.StartsWith("security: ", diagnostic, StringComparison.Ordinal));
     }
 
     [Fact]
@@ -54,6 +55,7 @@ public sealed class EvolutionOrchestratorTests
         Assert.False(result.IsValid);
         Assert.Equal(0, result.Fitness);
         Assert.NotEmpty(result.Diagnostics);
+        Assert.All(result.Diagnostics, diagnostic => Assert.StartsWith("compiler: ", diagnostic, StringComparison.Ordinal));
         Assert.Equal(0, fitnessEvaluator.CallCount);
     }
 

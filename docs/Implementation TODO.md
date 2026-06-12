@@ -22,8 +22,8 @@ Source: `docs/Evolving C# Program Design Specification.md`
 
 - [x] Add Semantic Kernel-backed mutator implementation
 - [x] Add crossover abstraction and implementation
-- [ ] Feed compiler/security/runtime diagnostics into mutation prompts
-- [ ] Add tests for deterministic prompt construction and response extraction
+- [x] Feed compiler/security/runtime diagnostics into mutation prompts
+- [x] Add tests for deterministic prompt construction and response extraction
 
 ## Phase 4 — Evolution engine
 

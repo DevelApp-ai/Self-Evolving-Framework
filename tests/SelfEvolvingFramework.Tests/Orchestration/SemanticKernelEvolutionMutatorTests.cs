@@ -8,13 +8,19 @@ namespace SelfEvolvingFramework.Tests.Orchestration;
 public sealed class SemanticKernelEvolutionMutatorTests
 {
     [Fact]
-    public async Task MutateAsync_Builds_Expected_Prompt_And_Returns_Model_Code()
+    public async Task MutateAsync_Builds_Deterministic_Diagnostics_Prompt_And_Returns_Model_Code()
     {
         var chat = new CapturingChatCompletionService("public static class Runner { public static int Execute() => 2; }");
         var mutator = new SemanticKernelEvolutionMutator(chat, "Optimize runtime performance.");
         var seed = new CandidateProgram("public static class Runner { public static int Execute() => 1; }");
 
-        var mutated = await mutator.MutateAsync(seed, ["compilation failed", "security violation"]);
+        var mutated = await mutator.MutateAsync(seed,
+        [
+            "compiler: CS1002 ; expected",
+            "security: Invocation 'System.IO.File.ReadAllText' is disallowed.",
+            "runtime: System.TimeoutException during Execute",
+            "Prefer linear-time operations"
+        ]);
 
         Assert.Equal(seed.Id, mutated.ParentId);
         Assert.Equal("public static class Runner { public static int Execute() => 2; }", mutated.SourceCode);
@@ -23,10 +29,27 @@ public sealed class SemanticKernelEvolutionMutatorTests
         Assert.Equal(2, capturedHistory.Count);
         Assert.Equal(AuthorRole.System, capturedHistory[0].Role);
         Assert.Equal(AuthorRole.User, capturedHistory[1].Role);
-        Assert.Contains("Objective:", capturedHistory[1].Content, StringComparison.Ordinal);
-        Assert.Contains("Optimize runtime performance.", capturedHistory[1].Content, StringComparison.Ordinal);
-        Assert.Contains("- compilation failed", capturedHistory[1].Content, StringComparison.Ordinal);
-        Assert.Contains("- security violation", capturedHistory[1].Content, StringComparison.Ordinal);
+        Assert.Equal(
+            """
+            Objective:
+            Optimize runtime performance.
+
+            Current C# source:
+            public static class Runner { public static int Execute() => 1; }
+
+            Compiler diagnostics:
+            - CS1002 ; expected
+            Security diagnostics:
+            - Invocation 'System.IO.File.ReadAllText' is disallowed.
+            Runtime diagnostics:
+            - System.TimeoutException during Execute
+            Additional feedback:
+            - Prefer linear-time operations
+
+            Return only the full revised C# source code.
+
+            """,
+            capturedHistory[1].Content);
     }
 
     [Fact]

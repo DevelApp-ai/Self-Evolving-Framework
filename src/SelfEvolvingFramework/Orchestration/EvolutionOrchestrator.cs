@@ -21,16 +21,19 @@ public sealed class EvolutionOrchestrator(
         var security = securityEvaluator.Evaluate(mutated.SourceCode);
         if (!security.IsAllowed)
         {
-            return new EvolutionResult(mutated, false, double.NegativeInfinity, security.Violations);
+            return new EvolutionResult(mutated, false, double.NegativeInfinity, PrefixDiagnostics("security", security.Violations));
         }
 
         var compilation = compilationService.Compile(mutated.SourceCode);
         if (!compilation.Success)
         {
-            return new EvolutionResult(mutated, false, 0, compilation.Diagnostics);
+            return new EvolutionResult(mutated, false, 0, PrefixDiagnostics("compiler", compilation.Diagnostics));
         }
 
         var fitness = await fitnessEvaluator.EvaluateAsync(mutated, cancellationToken);
         return new EvolutionResult(mutated, true, fitness, []);
     }
+
+    private static IReadOnlyList<string> PrefixDiagnostics(string category, IReadOnlyList<string> diagnostics)
+        => diagnostics.Select(diagnostic => $"{category}: {diagnostic}").ToArray();
 }

@@ -43,6 +43,7 @@ public sealed class SemanticKernelEvolutionMutator(
 
     internal string BuildMutationPrompt(string sourceCode, IReadOnlyList<string> feedback)
     {
+        var (compilerDiagnostics, securityDiagnostics, runtimeDiagnostics, additionalFeedback) = CategorizeFeedback(feedback);
         var builder = new StringBuilder();
         builder.AppendLine("Objective:");
         builder.AppendLine(_objective);
@@ -50,23 +51,77 @@ public sealed class SemanticKernelEvolutionMutator(
         builder.AppendLine("Current C# source:");
         builder.AppendLine(sourceCode);
         builder.AppendLine();
-        builder.AppendLine("Feedback from previous evaluation:");
-
-        if (feedback.Count == 0)
-        {
-            builder.AppendLine("- None");
-        }
-        else
-        {
-            foreach (var item in feedback)
-            {
-                builder.Append("- ").AppendLine(item);
-            }
-        }
+        AppendFeedbackSection(builder, "Compiler diagnostics:", compilerDiagnostics);
+        AppendFeedbackSection(builder, "Security diagnostics:", securityDiagnostics);
+        AppendFeedbackSection(builder, "Runtime diagnostics:", runtimeDiagnostics);
+        AppendFeedbackSection(builder, "Additional feedback:", additionalFeedback);
 
         builder.AppendLine();
         builder.AppendLine("Return only the full revised C# source code.");
         return builder.ToString();
+    }
+
+    private static void AppendFeedbackSection(StringBuilder builder, string title, IReadOnlyList<string> items)
+    {
+        builder.AppendLine(title);
+        if (items.Count == 0)
+        {
+            builder.AppendLine("- None");
+            return;
+        }
+
+        foreach (var item in items)
+        {
+            builder.Append("- ").AppendLine(item);
+        }
+    }
+
+    private static (IReadOnlyList<string> Compiler, IReadOnlyList<string> Security, IReadOnlyList<string> Runtime, IReadOnlyList<string> Additional)
+        CategorizeFeedback(IReadOnlyList<string> feedback)
+    {
+        var compiler = new List<string>();
+        var security = new List<string>();
+        var runtime = new List<string>();
+        var additional = new List<string>();
+
+        foreach (var item in feedback)
+        {
+            if (TryStripPrefix(item, "compiler", out var compilerDiagnostic))
+            {
+                compiler.Add(compilerDiagnostic);
+                continue;
+            }
+
+            if (TryStripPrefix(item, "security", out var securityDiagnostic))
+            {
+                security.Add(securityDiagnostic);
+                continue;
+            }
+
+            if (TryStripPrefix(item, "runtime", out var runtimeDiagnostic))
+            {
+                runtime.Add(runtimeDiagnostic);
+                continue;
+            }
+
+            additional.Add(item);
+        }
+
+        return (compiler, security, runtime, additional);
+    }
+
+    private static bool TryStripPrefix(string value, string prefix, out string strippedValue)
+    {
+        if (value.StartsWith(prefix, StringComparison.OrdinalIgnoreCase) &&
+            value.Length > prefix.Length &&
+            value[prefix.Length] == ':')
+        {
+            strippedValue = value[(prefix.Length + 1)..].Trim();
+            return true;
+        }
+
+        strippedValue = value;
+        return false;
     }
 
     internal static string? ExtractCode(string? modelResponse)
