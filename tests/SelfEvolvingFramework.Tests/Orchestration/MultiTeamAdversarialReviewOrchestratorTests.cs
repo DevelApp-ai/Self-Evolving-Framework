@@ -66,6 +66,38 @@ public sealed class MultiTeamAdversarialReviewOrchestratorTests
     }
 
     [Fact]
+    public async Task RunAsync_Continues_When_Deferred_Flaws_Remain()
+    {
+        var teams = new[]
+        {
+            new AdversarialTeamDefinition("team-1"),
+            new AdversarialTeamDefinition("team-2"),
+            new AdversarialTeamDefinition("team-3"),
+            new AdversarialTeamDefinition("team-4")
+        };
+
+        var executor = new RecordingRoleExecutor();
+        var adjudicator = new SequentialAdjudicationEngine(
+            [new FlawDecision("F1", FlawDisposition.Deferred, "needs another round")],
+            [new FlawDecision("F1", FlawDisposition.Rejected, "resolved")]);
+
+        var orchestrator = new MultiTeamAdversarialReviewOrchestrator(
+            new RoundRobinAdversarialRotationEngine(),
+            executor,
+            adjudicator,
+            new AdversarialWorkflowOptions(MaxRounds: 3));
+
+        var result = await orchestrator.RunAsync(
+            new CandidateProgram("public static class Seed { }"),
+            teams);
+
+        Assert.True(result.Converged);
+        Assert.Equal(2, result.Rounds.Count);
+        Assert.Equal(2, executor.ProposeCalls);
+        Assert.Equal(0, executor.FixCalls);
+    }
+
+    [Fact]
     public async Task RunAsync_Throws_When_Rotation_Assigns_Same_Reviewer_And_Opponent()
     {
         var orchestrator = new MultiTeamAdversarialReviewOrchestrator(

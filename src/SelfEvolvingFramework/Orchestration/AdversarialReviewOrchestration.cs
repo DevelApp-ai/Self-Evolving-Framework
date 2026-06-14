@@ -117,7 +117,10 @@ public sealed class MultiTeamAdversarialReviewOrchestrator(
             var decisions = await adjudicationEngine.DecideAsync(reviewContext, reports, challenges, cancellationToken);
 
             var stewardedCandidate = await roleExecutor.StewardAsync(reviewContext, decisions, cancellationToken);
-            var acceptedFlaws = decisions.Where(d => d.Disposition == FlawDisposition.Accepted).ToArray();
+            var unresolvedFlaws = decisions
+                .Where(d => d.Disposition is FlawDisposition.Accepted or FlawDisposition.Deferred)
+                .ToArray();
+            var acceptedFlaws = unresolvedFlaws.Where(d => d.Disposition == FlawDisposition.Accepted).ToArray();
             var resolvedCandidate = acceptedFlaws.Length == 0
                 ? stewardedCandidate
                 : await roleExecutor.FixAsync(
@@ -134,7 +137,7 @@ public sealed class MultiTeamAdversarialReviewOrchestrator(
                 decisions));
 
             candidate = resolvedCandidate;
-            if (acceptedFlaws.Length == 0)
+            if (unresolvedFlaws.Length == 0)
             {
                 return new AdversarialReviewResult(candidate, true, rounds);
             }
