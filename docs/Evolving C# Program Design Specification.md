@@ -155,6 +155,20 @@ This dynamic adjustment shifts the primary computational burden away from the ex
 While the AssemblyLoadContext represents the state-of-the-art in.NET dependency isolation and allows for the clean garbage collection of discarded assemblies 12, it is vital to acknowledge that it is not a true, impenetrable security boundary. It does not provide the hardware-level virtualization of a hypervisor, nor does it enforce the strict cross-domain marshaling rules of the legacy AppDomain architecture, which was explicitly deprecated in.NET Core and subsequent framework versions. Code running within an ALC still fundamentally executes with the base permissions of the host process.12  
 This architectural reality underscores the absolute, non-negotiable necessity of the pre-compilation OPA Rego guardrails.10 Because the execution context cannot physically prevent a dynamically generated native P/Invoke call or a sophisticated reflection-based attack from probing the host memory space, the OPA engine must perfectly analyze the serialized AST to guarantee that no unsafe syntax is ever permitted to reach the Roslyn compiler.8 The synergistic combination of CSharpSyntaxWalker JSON serialization and WebAssembly-backed Rego policies creates an impenetrable, shift-left security paradigm that protects the host system regardless of the LLM's generative output.11
 
+## **Technical Design Specification: Multi-Team Adversarial Review Extension**
+
+The adversarial review pipeline is extended to preserve unresolved findings across rounds and ensure review outcomes influence evolutionary selection pressure.
+
+### **Round Convergence and Deferred-Finding Continuation**
+
+The multi-team review loop must treat both **Accepted** and **Deferred** flaw decisions as unresolved findings. A round can only converge when no unresolved findings remain. This prevents premature loop termination in scenarios where all remaining findings are deferred for additional evidence gathering.  
+When a round contains deferred findings but no accepted findings, the orchestrator continues to the next adversarial round without invoking fixer logic, preserving iterative review momentum while avoiding unnecessary rewrite cycles.
+
+### **Fitness Feedback Integration**
+
+The evolution pipeline is extended so adversarial outcomes can be applied directly to final fitness scoring. `EvolutionOrchestrator.EvolveOnceAsync(...)` accepts optional adversarial round data, and when provided, base fitness is adjusted through `AdversarialFitnessFeedbackBridge` before the `EvolutionResult` is produced.  
+If no adversarial round data is supplied, fitness behavior remains unchanged, preserving backward compatibility for callers that do not run adversarial review.
+
 ## **Conclusion**
 
 The architecture presented in this technical specification establishes a highly robust, highly scalable, and fundamentally secure foundation for the deployment of autonomous, self-evolving software systems. By seamlessly integrating the deterministic, mathematical mechanics of Genetic Algorithms via GeneticSharp 17 with the semantic, generative reasoning capabilities of Large Language Models via Microsoft.SemanticKernel 20, the system completely overcomes the historical brittleness and inefficiency of traditional code generation and evolutionary computing.3  
