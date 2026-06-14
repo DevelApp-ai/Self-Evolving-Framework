@@ -44,7 +44,27 @@ public sealed class DefaultFlawAdjudicationEngineTests
         Assert.Equal(FlawDisposition.Deferred, decisions[0].Disposition);
     }
 
-    private static AdversarialRoleContext BuildContext()
+    [Fact]
+    public async Task DecideAsync_Accepts_Repeated_Deferred_Severe_Flaw_With_Evidence()
+    {
+        var engine = new DefaultFlawAdjudicationEngine();
+        var decisions = await engine.DecideAsync(
+            BuildContext(
+                [
+                    BuildRoundResult(
+                        "public static class Seed { }",
+                        "public static class Seed { }",
+                        [new FlawReport("F1", "issue", FlawSeverity.High, "prior trace")],
+                        [new FlawDecision("F1", FlawDisposition.Deferred, "needs more evidence")])
+                ]),
+            [new FlawReport("F1", "issue", FlawSeverity.High, "current trace")],
+            [new FlawChallenge("F1", true, "still disputed")]);
+
+        Assert.Single(decisions);
+        Assert.Equal(FlawDisposition.Accepted, decisions[0].Disposition);
+    }
+
+    private static AdversarialRoleContext BuildContext(IReadOnlyList<AdversarialRoundResult>? priorRounds = null)
     {
         var team = new AdversarialTeamDefinition("team-1");
         var assignment = new AdversarialRoundAssignment(
@@ -62,6 +82,33 @@ public sealed class DefaultFlawAdjudicationEngineTests
             1,
             assignment,
             new CandidateProgram("public static class Seed { }"),
-            []);
+            priorRounds ?? []);
+    }
+
+    private static AdversarialRoundResult BuildRoundResult(
+        string before,
+        string after,
+        IReadOnlyList<FlawReport> reports,
+        IReadOnlyList<FlawDecision> decisions)
+    {
+        var team = new AdversarialTeamDefinition("team-1");
+        var assignment = new AdversarialRoundAssignment(
+            1,
+            new Dictionary<AdversarialRole, AdversarialTeamDefinition>
+            {
+                [AdversarialRole.Proposer] = team,
+                [AdversarialRole.Reviewer] = team,
+                [AdversarialRole.Opponent] = team,
+                [AdversarialRole.Steward] = team,
+                [AdversarialRole.Fixer] = team
+            });
+
+        return new AdversarialRoundResult(
+            assignment,
+            new CandidateProgram(before),
+            new CandidateProgram(after),
+            reports,
+            [],
+            decisions);
     }
 }

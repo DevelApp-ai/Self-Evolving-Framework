@@ -16,6 +16,11 @@ public sealed class DefaultFlawAdjudicationEngine : IFlawAdjudicationEngine
         var challengesByFlawId = challenges
             .GroupBy(challenge => challenge.FlawId, StringComparer.Ordinal)
             .ToDictionary(group => group.Key, group => group.Last(), StringComparer.Ordinal);
+        var priorDeferredFlaws = context.PriorRounds
+            .SelectMany(round => round.Decisions)
+            .Where(decision => decision.Disposition == FlawDisposition.Deferred)
+            .Select(decision => decision.FlawId)
+            .ToHashSet(StringComparer.Ordinal);
 
         var decisions = new List<FlawDecision>(reports.Count);
         foreach (var report in reports)
@@ -40,6 +45,17 @@ public sealed class DefaultFlawAdjudicationEngine : IFlawAdjudicationEngine
             }
 
             var hasEvidence = !string.IsNullOrWhiteSpace(report.Evidence);
+            if (hasEvidence
+                && priorDeferredFlaws.Contains(report.FlawId)
+                && report.Severity is FlawSeverity.Critical or FlawSeverity.High)
+            {
+                decisions.Add(new FlawDecision(
+                    report.FlawId,
+                    FlawDisposition.Accepted,
+                    "Repeated deferred severe flaw promoted to accepted for remediation."));
+                continue;
+            }
+
             var disposition = report.Severity switch
             {
                 FlawSeverity.Critical or FlawSeverity.High when hasEvidence => FlawDisposition.Deferred,
