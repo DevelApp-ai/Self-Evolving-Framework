@@ -65,6 +65,19 @@ public sealed class SemanticKernelEvolutionMutatorTests
     }
 
     [Fact]
+    public async Task MutateAsync_Strips_Code_Fences_When_Response_Contains_Extra_Text()
+    {
+        var chat = new CapturingChatCompletionService(
+            "Here is the updated code:\n```csharp\npublic static class Runner { public static int Execute() => 4; }\n```\nThis should help.");
+        var mutator = new SemanticKernelEvolutionMutator(chat, "Improve implementation.");
+        var seed = new CandidateProgram("public static class Runner { public static int Execute() => 1; }");
+
+        var mutated = await mutator.MutateAsync(seed, []);
+
+        Assert.Equal("public static class Runner { public static int Execute() => 4; }", mutated.SourceCode);
+    }
+
+    [Fact]
     public async Task MutateAsync_Returns_Original_Candidate_When_Model_Returns_Empty()
     {
         var chat = new CapturingChatCompletionService("   ");

@@ -46,6 +46,20 @@ public sealed class SemanticKernelEvolutionCrossoverTests
     }
 
     [Fact]
+    public async Task CrossoverAsync_Strips_Code_Fences_When_Response_Contains_Extra_Text()
+    {
+        var chat = new CapturingChatCompletionService(
+            "Result:\n```csharp\npublic static class Runner { public static int Execute() => 6; }\n```\nDone.");
+        var crossover = new SemanticKernelEvolutionCrossover(chat, "Blend both implementations.");
+        var parentA = new CandidateProgram("public static class Runner { public static int Execute() => 1; }");
+        var parentB = new CandidateProgram("public static class Runner { public static int Execute() => 2; }");
+
+        var offspring = await crossover.CrossoverAsync(parentA, parentB);
+
+        Assert.Equal("public static class Runner { public static int Execute() => 6; }", offspring.SourceCode);
+    }
+
+    [Fact]
     public async Task CrossoverAsync_Returns_First_Parent_When_Model_Returns_Empty()
     {
         var chat = new CapturingChatCompletionService("   ");
