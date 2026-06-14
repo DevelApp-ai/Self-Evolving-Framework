@@ -28,6 +28,10 @@ var result = await orchestrator.EvolveOnceAsync(
     cancellationToken);
 ```
 
+For an end-to-end wiring example that combines mutation, fitness, and the multi-team adversarial review loop, see:
+
+- `tests/SelfEvolvingFramework.Tests/Integration/AdversarialLoopWiringIntegrationTests.cs`
+
 ## Build and test
 
 ```bash

@@ -46,6 +46,66 @@ public sealed class EvolutionOrchestratorTests
     }
 
     [Fact]
+    public async Task EvolveOnceAsync_Applies_Adversarial_Fitness_Adjustment_When_Rounds_Provided()
+    {
+        var fitnessEvaluator = new ConstantFitnessEvaluator(10);
+        var orchestrator = new EvolutionOrchestrator(
+            new RoslynAstSecurityEvaluator(),
+            new RoslynDynamicCompilationService(),
+            fitnessEvaluator,
+            new ConstantMutator("public static class Runner { public static int Execute() => 1; }"));
+
+        var rounds = new[]
+        {
+            BuildAdversarialRound(
+                before: "public static class Runner { public static int Execute() => 1; }",
+                after: "public static class Runner { public static int Execute() => 1; }",
+                reports: [new FlawReport("F1", "needs retest", FlawSeverity.High, "trace")],
+                decisions: [new FlawDecision("F1", FlawDisposition.Deferred, "defer")])
+        };
+
+        var result = await orchestrator.EvolveOnceAsync(
+            new CandidateProgram("public static class Seed{}"),
+            adversarialRounds: rounds);
+
+        Assert.True(result.IsValid);
+        Assert.Equal(9.25, result.Fitness);
+        Assert.Equal(1, fitnessEvaluator.CallCount);
+    }
+
+    [Fact]
+    public async Task EvolveOnceAsync_Evaluates_And_Returns_Final_Adversarial_Candidate_When_Rounds_Provided()
+    {
+        const string mutatedSource = "public static class Runner { public static int Execute() => 1; }";
+        const string finalizedSource = "public static class Runner { public static int Execute() => 2; }";
+
+        var fitnessEvaluator = new SourceLengthFitnessEvaluator();
+        var orchestrator = new EvolutionOrchestrator(
+            new RoslynAstSecurityEvaluator(),
+            new RoslynDynamicCompilationService(),
+            fitnessEvaluator,
+            new ConstantMutator(mutatedSource));
+
+        var rounds = new[]
+        {
+            BuildAdversarialRound(
+                before: mutatedSource,
+                after: finalizedSource,
+                reports: [],
+                decisions: [])
+        };
+
+        var result = await orchestrator.EvolveOnceAsync(
+            new CandidateProgram("public static class Seed{}"),
+            adversarialRounds: rounds);
+
+        Assert.True(result.IsValid);
+        Assert.Equal(finalizedSource, result.Candidate.SourceCode);
+        Assert.Equal(finalizedSource, fitnessEvaluator.LastEvaluatedSourceCode);
+        Assert.Equal(finalizedSource.Length, result.Fitness);
+    }
+
+    [Fact]
     public async Task EvolveOnceAsync_Returns_Invalid_For_Compilation_Failure_And_Skips_Fitness()
     {
         var fitnessEvaluator = new ConstantFitnessEvaluator(5);
@@ -272,5 +332,43 @@ public sealed class EvolutionOrchestratorTests
     {
         public Task<double> EvaluateAsync(CandidateProgram candidate, CancellationToken cancellationToken = default)
             => throw new InvalidOperationException("Fitness failed.");
+    }
+
+    private sealed class SourceLengthFitnessEvaluator : IFitnessEvaluator
+    {
+        public string LastEvaluatedSourceCode { get; private set; } = string.Empty;
+
+        public Task<double> EvaluateAsync(CandidateProgram candidate, CancellationToken cancellationToken = default)
+        {
+            LastEvaluatedSourceCode = candidate.SourceCode;
+            return Task.FromResult((double)candidate.SourceCode.Length);
+        }
+    }
+
+    private static AdversarialRoundResult BuildAdversarialRound(
+        string before,
+        string after,
+        IReadOnlyList<FlawReport> reports,
+        IReadOnlyList<FlawDecision> decisions)
+    {
+        var team = new AdversarialTeamDefinition("team-1");
+        var assignment = new AdversarialRoundAssignment(
+            1,
+            new Dictionary<AdversarialRole, AdversarialTeamDefinition>
+            {
+                [AdversarialRole.Proposer] = team,
+                [AdversarialRole.Reviewer] = team,
+                [AdversarialRole.Opponent] = team,
+                [AdversarialRole.Steward] = team,
+                [AdversarialRole.Fixer] = team
+            });
+
+        return new AdversarialRoundResult(
+            assignment,
+            new CandidateProgram(before),
+            new CandidateProgram(after),
+            reports,
+            [],
+            decisions);
     }
 }

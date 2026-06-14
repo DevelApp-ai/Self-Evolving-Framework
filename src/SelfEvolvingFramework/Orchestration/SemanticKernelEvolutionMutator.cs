@@ -132,19 +132,20 @@ public sealed class SemanticKernelEvolutionMutator(
         }
 
         var response = modelResponse.Trim();
-        if (!response.StartsWith("```", StringComparison.Ordinal))
+        var firstFence = response.IndexOf("```", StringComparison.Ordinal);
+        if (firstFence < 0)
         {
             return response;
         }
 
-        var firstLineEnd = response.IndexOf('\n');
+        var firstLineEnd = response.IndexOf('\n', firstFence);
         if (firstLineEnd < 0)
         {
             return null;
         }
 
         var lastFenceStart = response.LastIndexOf("```", StringComparison.Ordinal);
-        if (lastFenceStart <= firstLineEnd)
+        if (lastFenceStart <= firstLineEnd || lastFenceStart == firstFence)
         {
             return null;
         }
