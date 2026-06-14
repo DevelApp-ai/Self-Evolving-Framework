@@ -86,37 +86,41 @@ public sealed class EvolutionOrchestrator(
         }
         mutationDuration = mutationStopwatch.Elapsed;
 
+        var candidateForEvaluation = roundsForFitness.Length == 0
+            ? mutated
+            : roundsForFitness[^1].CandidateAfterRound;
+
         var securityStopwatch = Stopwatch.StartNew();
-        var security = securityEvaluator.Evaluate(mutated.SourceCode);
+        var security = securityEvaluator.Evaluate(candidateForEvaluation.SourceCode);
         securityEvaluationDuration = securityStopwatch.Elapsed;
         if (!security.IsAllowed)
         {
-            return BuildResult(mutated, false, double.NegativeInfinity, PrefixDiagnostics("security", security.Violations));
+            return BuildResult(candidateForEvaluation, false, double.NegativeInfinity, PrefixDiagnostics("security", security.Violations));
         }
 
         var compilationStopwatch = Stopwatch.StartNew();
-        var compilation = compilationService.Compile(mutated.SourceCode);
+        var compilation = compilationService.Compile(candidateForEvaluation.SourceCode);
         compilationDuration = compilationStopwatch.Elapsed;
         if (!compilation.Success)
         {
-            return BuildResult(mutated, false, 0, PrefixDiagnostics("compiler", compilation.Diagnostics));
+            return BuildResult(candidateForEvaluation, false, 0, PrefixDiagnostics("compiler", compilation.Diagnostics));
         }
 
         var fitnessStopwatch = Stopwatch.StartNew();
         try
         {
-            var baseFitness = await fitnessEvaluator.EvaluateAsync(mutated, budgetCancellation.Token);
+            var baseFitness = await fitnessEvaluator.EvaluateAsync(candidateForEvaluation, budgetCancellation.Token);
             var fitness = roundsForFitness.Length == 0
                 ? baseFitness
                 : _adversarialFitnessFeedbackBridge.Apply(baseFitness, roundsForFitness);
             fitnessEvaluationDuration = fitnessStopwatch.Elapsed;
-            return BuildResult(mutated, true, fitness, []);
+            return BuildResult(candidateForEvaluation, true, fitness, []);
         }
         catch (OperationCanceledException)
         {
             fitnessEvaluationDuration = fitnessStopwatch.Elapsed;
             return BuildResult(
-                mutated,
+                candidateForEvaluation,
                 false,
                 double.NegativeInfinity,
                 GetCancellationDiagnostics(cancellationToken),
@@ -126,7 +130,7 @@ public sealed class EvolutionOrchestrator(
         catch (Exception ex)
         {
             fitnessEvaluationDuration = fitnessStopwatch.Elapsed;
-            return BuildResult(mutated, false, double.NegativeInfinity, PrefixDiagnostics("fitness", [ex.Message]));
+            return BuildResult(candidateForEvaluation, false, double.NegativeInfinity, PrefixDiagnostics("fitness", [ex.Message]));
         }
     }
 
