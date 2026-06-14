@@ -101,6 +101,7 @@ public sealed class MultiTeamAdversarialReviewOrchestrator(
 
         var rounds = new List<AdversarialRoundResult>();
         var candidate = seed;
+        var unresolvedReportsByFlawId = new Dictionary<string, FlawReport>(StringComparer.Ordinal);
 
         for (var roundNumber = 1; roundNumber <= _options.MaxRounds; roundNumber++)
         {
@@ -112,7 +113,14 @@ public sealed class MultiTeamAdversarialReviewOrchestrator(
             var proposedCandidate = await roleExecutor.ProposeAsync(roundContext, cancellationToken);
 
             var reviewContext = roundContext with { CurrentCandidate = proposedCandidate };
-            var reports = await roleExecutor.ReviewAsync(reviewContext, cancellationToken);
+            var roundReports = await roleExecutor.ReviewAsync(reviewContext, cancellationToken);
+            var reportsByFlawId = new Dictionary<string, FlawReport>(unresolvedReportsByFlawId, StringComparer.Ordinal);
+            foreach (var report in roundReports)
+            {
+                reportsByFlawId[report.FlawId] = report;
+            }
+
+            var reports = reportsByFlawId.Values.ToArray();
             var challenges = await roleExecutor.OpposeAsync(reviewContext, reports, cancellationToken);
             var decisions = await adjudicationEngine.DecideAsync(reviewContext, reports, challenges, cancellationToken);
 
@@ -120,6 +128,10 @@ public sealed class MultiTeamAdversarialReviewOrchestrator(
             var unresolvedFlaws = decisions
                 .Where(d => d.Disposition is FlawDisposition.Accepted or FlawDisposition.Deferred)
                 .ToArray();
+            unresolvedReportsByFlawId = unresolvedFlaws
+                .Select(decision => reportsByFlawId.TryGetValue(decision.FlawId, out var report) ? report : null)
+                .Where(report => report is not null)
+                .ToDictionary(report => report!.FlawId, report => report!, StringComparer.Ordinal);
             var acceptedFlaws = unresolvedFlaws.Where(d => d.Disposition == FlawDisposition.Accepted).ToArray();
             var resolvedCandidate = acceptedFlaws.Length == 0
                 ? stewardedCandidate
@@ -137,7 +149,7 @@ public sealed class MultiTeamAdversarialReviewOrchestrator(
                 decisions));
 
             candidate = resolvedCandidate;
-            if (unresolvedFlaws.Length == 0)
+            if (unresolvedReportsByFlawId.Count == 0)
             {
                 return new AdversarialReviewResult(candidate, true, rounds);
             }

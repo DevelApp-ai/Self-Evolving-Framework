@@ -110,6 +110,42 @@ public sealed class MultiTeamAdversarialReviewOrchestratorTests
             [new AdversarialTeamDefinition("team-1")]));
     }
 
+    [Fact]
+    public async Task RunAsync_Carries_Deferred_Flaw_When_Not_ReReported_Next_Round()
+    {
+        var teams = new[]
+        {
+            new AdversarialTeamDefinition("team-1"),
+            new AdversarialTeamDefinition("team-2"),
+            new AdversarialTeamDefinition("team-3"),
+            new AdversarialTeamDefinition("team-4")
+        };
+
+        var executor = new SequencedRoleExecutor(
+            [
+                [new FlawReport("F1", "needs deeper investigation", FlawSeverity.High, "trace")],
+                []
+            ]);
+        var adjudicator = new SequentialAdjudicationEngine(
+            [new FlawDecision("F1", FlawDisposition.Deferred, "collect more evidence")],
+            [new FlawDecision("F1", FlawDisposition.Rejected, "invalid after follow-up")]);
+        var orchestrator = new MultiTeamAdversarialReviewOrchestrator(
+            new RoundRobinAdversarialRotationEngine(),
+            executor,
+            adjudicator,
+            new AdversarialWorkflowOptions(MaxRounds: 3));
+
+        var result = await orchestrator.RunAsync(
+            new CandidateProgram("public static class Seed { }"),
+            teams);
+
+        Assert.True(result.Converged);
+        Assert.Equal(2, result.Rounds.Count);
+        Assert.Equal(["F1"], executor.OpposeFlawIdsByRound[0]);
+        Assert.Equal(["F1"], executor.OpposeFlawIdsByRound[1]);
+        Assert.Equal(["F1"], result.Rounds[1].Reports.Select(report => report.FlawId).ToArray());
+    }
+
     private sealed class RecordingRoleExecutor : IAdversarialRoleExecutor
     {
         public int ProposeCalls { get; private set; }
@@ -179,5 +215,44 @@ public sealed class MultiTeamAdversarialReviewOrchestratorTests
                     [AdversarialRole.Fixer] = team
                 });
         }
+    }
+
+    private sealed class SequencedRoleExecutor(IReadOnlyList<IReadOnlyList<FlawReport>> reviewReportsByRound) : IAdversarialRoleExecutor
+    {
+        private int _reviewCalls;
+
+        public List<string[]> OpposeFlawIdsByRound { get; } = [];
+
+        public Task<CandidateProgram> ProposeAsync(AdversarialRoleContext context, CancellationToken cancellationToken = default)
+            => Task.FromResult(new CandidateProgram(context.CurrentCandidate.SourceCode, context.CurrentCandidate.Id));
+
+        public Task<IReadOnlyList<FlawReport>> ReviewAsync(AdversarialRoleContext context, CancellationToken cancellationToken = default)
+        {
+            var index = Math.Min(_reviewCalls, reviewReportsByRound.Count - 1);
+            _reviewCalls++;
+            return Task.FromResult(reviewReportsByRound[index]);
+        }
+
+        public Task<IReadOnlyList<FlawChallenge>> OpposeAsync(
+            AdversarialRoleContext context,
+            IReadOnlyList<FlawReport> reports,
+            CancellationToken cancellationToken = default)
+        {
+            OpposeFlawIdsByRound.Add(reports.Select(report => report.FlawId).ToArray());
+            return Task.FromResult<IReadOnlyList<FlawChallenge>>(
+                reports.Select(report => new FlawChallenge(report.FlawId, true, "challenge")).ToArray());
+        }
+
+        public Task<CandidateProgram> StewardAsync(
+            AdversarialRoleContext context,
+            IReadOnlyList<FlawDecision> decisions,
+            CancellationToken cancellationToken = default)
+            => Task.FromResult(context.CurrentCandidate);
+
+        public Task<CandidateProgram> FixAsync(
+            AdversarialRoleContext context,
+            IReadOnlyList<FlawDecision> acceptedFlaws,
+            CancellationToken cancellationToken = default)
+            => Task.FromResult(context.CurrentCandidate);
     }
 }
