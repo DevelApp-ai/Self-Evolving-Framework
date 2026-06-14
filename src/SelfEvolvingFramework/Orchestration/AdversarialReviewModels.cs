@@ -109,10 +109,51 @@ public sealed record AdversarialRoundResult(
     public bool HasUnresolvedDecisions => UnresolvedDecisionCount > 0;
 }
 
+public sealed record AdversarialRoundConvergenceTelemetry(
+    int RoundNumber,
+    int ReportCount,
+    int ChallengeCount,
+    int DisputedChallengeCount,
+    int AcceptedDecisionCount,
+    int RejectedDecisionCount,
+    int DeferredDecisionCount,
+    int UnresolvedDecisionCount,
+    int UnresolvedDecisionDelta,
+    bool ConvergedAfterRound);
+
 public sealed record AdversarialReviewResult(
     CandidateProgram FinalCandidate,
     bool Converged,
-    IReadOnlyList<AdversarialRoundResult> Rounds);
+    IReadOnlyList<AdversarialRoundResult> Rounds)
+{
+    public IReadOnlyList<AdversarialRoundConvergenceTelemetry> ConvergenceTelemetry
+    {
+        get
+        {
+            var telemetry = new List<AdversarialRoundConvergenceTelemetry>(Rounds.Count);
+            var previousUnresolved = 0;
+            for (var i = 0; i < Rounds.Count; i++)
+            {
+                var round = Rounds[i];
+                var unresolved = round.UnresolvedDecisionCount;
+                telemetry.Add(new AdversarialRoundConvergenceTelemetry(
+                    round.Assignment.RoundNumber,
+                    round.Reports.Count,
+                    round.Challenges.Count,
+                    round.Challenges.Count(challenge => challenge.Disputed),
+                    round.AcceptedDecisionCount,
+                    round.RejectedDecisionCount,
+                    round.DeferredDecisionCount,
+                    unresolved,
+                    unresolved - previousUnresolved,
+                    !round.HasUnresolvedDecisions));
+                previousUnresolved = unresolved;
+            }
+
+            return telemetry;
+        }
+    }
+}
 
 public sealed record AdversarialRoleContext(
     int RoundNumber,

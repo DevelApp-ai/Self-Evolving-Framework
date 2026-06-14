@@ -69,6 +69,9 @@ public sealed class MultiTeamAdversarialReviewOrchestratorTests
         Assert.True(result.Rounds[0].HasUnresolvedDecisions);
         Assert.Equal(0, result.Rounds[1].UnresolvedDecisionCount);
         Assert.False(result.Rounds[1].HasUnresolvedDecisions);
+        Assert.Equal(2, result.ConvergenceTelemetry.Count);
+        Assert.Equal(1, result.ConvergenceTelemetry[0].UnresolvedDecisionCount);
+        Assert.Equal(0, result.ConvergenceTelemetry[1].UnresolvedDecisionCount);
     }
 
     [Fact]
@@ -108,6 +111,9 @@ public sealed class MultiTeamAdversarialReviewOrchestratorTests
         Assert.Equal(1, result.Rounds[1].RejectedDecisionCount);
         Assert.Equal(0, result.Rounds[1].UnresolvedDecisionCount);
         Assert.False(result.Rounds[1].HasUnresolvedDecisions);
+        Assert.Equal(2, result.ConvergenceTelemetry.Count);
+        Assert.Equal(1, result.ConvergenceTelemetry[0].UnresolvedDecisionDelta);
+        Assert.Equal(-1, result.ConvergenceTelemetry[1].UnresolvedDecisionDelta);
     }
 
     [Fact]
@@ -157,6 +163,61 @@ public sealed class MultiTeamAdversarialReviewOrchestratorTests
         Assert.Equal(["F1"], executor.OpposeFlawIdsByRound[0]);
         Assert.Equal(["F1"], executor.OpposeFlawIdsByRound[1]);
         Assert.Equal(["F1"], result.Rounds[1].Reports.Select(report => report.FlawId).ToArray());
+    }
+
+    [Fact]
+    public async Task RunAsync_Produces_PerRound_Convergence_Telemetry_Diagnostics()
+    {
+        var teams = new[]
+        {
+            new AdversarialTeamDefinition("team-1"),
+            new AdversarialTeamDefinition("team-2"),
+            new AdversarialTeamDefinition("team-3"),
+            new AdversarialTeamDefinition("team-4")
+        };
+
+        var executor = new SequencedRoleExecutor(
+            [
+                [
+                    new FlawReport("F1", "critical issue", FlawSeverity.Critical, "trace"),
+                    new FlawReport("F2", "minor issue", FlawSeverity.Low)
+                ],
+                [new FlawReport("F1", "critical issue", FlawSeverity.Critical, "trace")]
+            ]);
+        var adjudicator = new SequentialAdjudicationEngine(
+            [
+                new FlawDecision("F1", FlawDisposition.Accepted, "fix now"),
+                new FlawDecision("F2", FlawDisposition.Rejected, "not valid")
+            ],
+            [new FlawDecision("F1", FlawDisposition.Rejected, "fixed")]);
+        var orchestrator = new MultiTeamAdversarialReviewOrchestrator(
+            new RoundRobinAdversarialRotationEngine(),
+            executor,
+            adjudicator,
+            new AdversarialWorkflowOptions(MaxRounds: 3));
+
+        var result = await orchestrator.RunAsync(
+            new CandidateProgram("public static class Seed { }"),
+            teams);
+
+        Assert.True(result.Converged);
+        Assert.Equal(2, result.ConvergenceTelemetry.Count);
+        var round1 = result.ConvergenceTelemetry[0];
+        var round2 = result.ConvergenceTelemetry[1];
+        Assert.Equal(1, round1.RoundNumber);
+        Assert.Equal(2, round1.ReportCount);
+        Assert.Equal(2, round1.ChallengeCount);
+        Assert.Equal(2, round1.DisputedChallengeCount);
+        Assert.Equal(1, round1.AcceptedDecisionCount);
+        Assert.Equal(1, round1.RejectedDecisionCount);
+        Assert.Equal(0, round1.DeferredDecisionCount);
+        Assert.Equal(1, round1.UnresolvedDecisionCount);
+        Assert.Equal(1, round1.UnresolvedDecisionDelta);
+        Assert.False(round1.ConvergedAfterRound);
+        Assert.Equal(2, round2.RoundNumber);
+        Assert.Equal(0, round2.UnresolvedDecisionCount);
+        Assert.Equal(-1, round2.UnresolvedDecisionDelta);
+        Assert.True(round2.ConvergedAfterRound);
     }
 
     private sealed class RecordingRoleExecutor : IAdversarialRoleExecutor
