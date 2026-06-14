@@ -63,6 +63,12 @@ public sealed class MultiTeamAdversarialReviewOrchestratorTests
         Assert.Equal(2, result.Rounds.Count);
         Assert.Equal(2, executor.ProposeCalls);
         Assert.Equal(1, executor.FixCalls);
+        Assert.Equal(1, result.Rounds[0].AcceptedDecisionCount);
+        Assert.Equal(0, result.Rounds[0].DeferredDecisionCount);
+        Assert.Equal(1, result.Rounds[0].UnresolvedDecisionCount);
+        Assert.True(result.Rounds[0].HasUnresolvedDecisions);
+        Assert.Equal(0, result.Rounds[1].UnresolvedDecisionCount);
+        Assert.False(result.Rounds[1].HasUnresolvedDecisions);
     }
 
     [Fact]
@@ -95,6 +101,13 @@ public sealed class MultiTeamAdversarialReviewOrchestratorTests
         Assert.Equal(2, result.Rounds.Count);
         Assert.Equal(2, executor.ProposeCalls);
         Assert.Equal(0, executor.FixCalls);
+        Assert.Equal(1, result.Rounds[0].DeferredDecisionCount);
+        Assert.Equal(0, result.Rounds[0].RejectedDecisionCount);
+        Assert.Equal(1, result.Rounds[0].UnresolvedDecisionCount);
+        Assert.True(result.Rounds[0].HasUnresolvedDecisions);
+        Assert.Equal(1, result.Rounds[1].RejectedDecisionCount);
+        Assert.Equal(0, result.Rounds[1].UnresolvedDecisionCount);
+        Assert.False(result.Rounds[1].HasUnresolvedDecisions);
     }
 
     [Fact]

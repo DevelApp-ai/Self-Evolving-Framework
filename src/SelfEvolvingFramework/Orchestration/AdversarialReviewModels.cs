@@ -96,7 +96,18 @@ public sealed record AdversarialRoundResult(
     CandidateProgram CandidateAfterRound,
     IReadOnlyList<FlawReport> Reports,
     IReadOnlyList<FlawChallenge> Challenges,
-    IReadOnlyList<FlawDecision> Decisions);
+    IReadOnlyList<FlawDecision> Decisions)
+{
+    public int AcceptedDecisionCount => Decisions.Count(decision => decision.Disposition == FlawDisposition.Accepted);
+
+    public int RejectedDecisionCount => Decisions.Count(decision => decision.Disposition == FlawDisposition.Rejected);
+
+    public int DeferredDecisionCount => Decisions.Count(decision => decision.Disposition == FlawDisposition.Deferred);
+
+    public int UnresolvedDecisionCount => AcceptedDecisionCount + DeferredDecisionCount;
+
+    public bool HasUnresolvedDecisions => UnresolvedDecisionCount > 0;
+}
 
 public sealed record AdversarialReviewResult(
     CandidateProgram FinalCandidate,
