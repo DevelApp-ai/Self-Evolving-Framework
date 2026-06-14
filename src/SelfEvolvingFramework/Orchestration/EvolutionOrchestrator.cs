@@ -10,13 +10,16 @@ public sealed class EvolutionOrchestrator(
     IDynamicCompilationService compilationService,
     IFitnessEvaluator fitnessEvaluator,
     IEvolutionMutator mutator,
-    EvolutionOrchestratorOptions? options = null)
+    EvolutionOrchestratorOptions? options = null,
+    AdversarialFitnessFeedbackBridge? adversarialFitnessFeedbackBridge = null)
 {
     private readonly EvolutionOrchestratorOptions _options = options ?? new();
+    private readonly AdversarialFitnessFeedbackBridge _adversarialFitnessFeedbackBridge = adversarialFitnessFeedbackBridge ?? new();
 
     public async Task<EvolutionResult> EvolveOnceAsync(
         CandidateProgram seed,
         IReadOnlyList<string>? feedback = null,
+        IReadOnlyList<AdversarialRoundResult>? adversarialRounds = null,
         CancellationToken cancellationToken = default)
     {
         var totalStopwatch = Stopwatch.StartNew();
@@ -58,6 +61,7 @@ public sealed class EvolutionOrchestrator(
         budgetCancellation.CancelAfter(TimeSpan.FromMilliseconds(_options.ExecutionBudgetMilliseconds));
 
         var mutationFeedback = feedback is null or { Count: 0 } ? Array.Empty<string>() : feedback.ToArray();
+        var roundsForFitness = adversarialRounds is null or { Count: 0 } ? Array.Empty<AdversarialRoundResult>() : adversarialRounds.ToArray();
         CandidateProgram mutated;
         var mutationStopwatch = Stopwatch.StartNew();
         try
@@ -101,7 +105,10 @@ public sealed class EvolutionOrchestrator(
         var fitnessStopwatch = Stopwatch.StartNew();
         try
         {
-            var fitness = await fitnessEvaluator.EvaluateAsync(mutated, budgetCancellation.Token);
+            var baseFitness = await fitnessEvaluator.EvaluateAsync(mutated, budgetCancellation.Token);
+            var fitness = roundsForFitness.Length == 0
+                ? baseFitness
+                : _adversarialFitnessFeedbackBridge.Apply(baseFitness, roundsForFitness);
             fitnessEvaluationDuration = fitnessStopwatch.Elapsed;
             return BuildResult(mutated, true, fitness, []);
         }
