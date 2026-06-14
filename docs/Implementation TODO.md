@@ -18,5 +18,5 @@ This checklist tracks concrete implementation status for the framework roadmap.
 
 - [x] Add richer flaw adjudication heuristics for conflict-heavy rounds
 - [x] Expand adversarial telemetry for per-round convergence diagnostics
-- [ ] Add end-to-end sample wiring mutation + fitness + adversarial loop
+- [x] Add end-to-end sample wiring mutation + fitness + adversarial loop
 - [ ] Add additional negative integration tests for malformed adjudication outputs
