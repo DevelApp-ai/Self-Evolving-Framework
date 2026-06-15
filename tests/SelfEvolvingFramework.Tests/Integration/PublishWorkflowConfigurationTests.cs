@@ -22,6 +22,7 @@ public sealed class PublishWorkflowConfigurationTests
         Assert.Contains("environment: ${{ vars.RELEASE_ENVIRONMENT || 'shared' }}", workflow);
         Assert.Contains("env:", workflow);
         Assert.Contains("NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}", workflow);
+        Assert.Contains("NUGET_API_KEY is not configured. Add a valid NuGet.org API key in repository, organization, or selected release environment secrets", workflow);
     }
 
     [Fact]
@@ -32,6 +33,18 @@ public sealed class PublishWorkflowConfigurationTests
         Assert.Contains("release:", workflow);
         Assert.Contains("- published", workflow);
         Assert.Contains("github.event_name == 'release' && github.event.action == 'published'", workflow);
+    }
+
+    [Fact]
+    public void PublishWorkflow_Creates_GitHub_Release_Before_NuGet_Publish()
+    {
+        var workflow = ReadPublishWorkflow();
+        var releaseStepIndex = workflow.IndexOf("      - name: Create or update GitHub Release", StringComparison.Ordinal);
+        var nuGetPublishIndex = workflow.IndexOf("      - name: Publish release to NuGet.org", StringComparison.Ordinal);
+
+        Assert.True(releaseStepIndex >= 0, "Expected Create or update GitHub Release step in publish workflow.");
+        Assert.True(nuGetPublishIndex >= 0, "Expected Publish release to NuGet.org step in publish workflow.");
+        Assert.True(releaseStepIndex < nuGetPublishIndex, "Expected GitHub Release step to run before NuGet.org publish step.");
     }
 
     private static string ReadPublishWorkflow()

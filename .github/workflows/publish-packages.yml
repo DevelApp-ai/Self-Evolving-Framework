@@ -217,16 +217,6 @@ jobs:
             sleep 10
           done
 
-      - name: Ensure NuGet.org publishing is configured
-        run: |
-          if [ -z "${{ env.NUGET_API_KEY }}" ]; then
-            echo "::error::NUGET_API_KEY is not configured for the release environment. Add a valid NuGet.org API key with package push permission."
-            exit 1
-          fi
-
-      - name: Publish release to NuGet.org
-        run: dotnet nuget push "${{ env.PACKAGE_FILE }}" --source https://api.nuget.org/v3/index.json --api-key "${{ env.NUGET_API_KEY }}" --skip-duplicate
-
       - name: Create or update GitHub Release
         uses: softprops/action-gh-release@v2
         with:
@@ -236,3 +226,13 @@ jobs:
           generate_release_notes: true
           fail_on_unmatched_files: true
           files: ${{ env.PACKAGE_FILE }}
+
+      - name: Ensure NuGet.org publishing is configured
+        run: |
+          if [ -z "${{ env.NUGET_API_KEY }}" ]; then
+            echo "::error::NUGET_API_KEY is not configured. Add a valid NuGet.org API key in repository, organization, or selected release environment secrets with package push permission."
+            exit 1
+          fi
+
+      - name: Publish release to NuGet.org
+        run: dotnet nuget push "${{ env.PACKAGE_FILE }}" --source https://api.nuget.org/v3/index.json --api-key "${{ env.NUGET_API_KEY }}" --skip-duplicate
