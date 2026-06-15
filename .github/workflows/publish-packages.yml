@@ -123,6 +123,7 @@ jobs:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     needs: build-test
     runs-on: ubuntu-latest
+    environment: ${{ vars.RELEASE_ENVIRONMENT || 'production' }}
     permissions:
       contents: write
       packages: write
@@ -201,15 +202,15 @@ jobs:
             sleep 10
           done
 
-      - name: Publish release to NuGet.org
-        id: publish_nuget
-        if: ${{ env.NUGET_API_KEY != '' }}
-        continue-on-error: true
-        run: dotnet nuget push "${{ env.PACKAGE_FILE }}" --source https://api.nuget.org/v3/index.json --api-key "${{ env.NUGET_API_KEY }}" --skip-duplicate
+      - name: Ensure NuGet.org publishing is configured
+        run: |
+          if [ -z "${{ env.NUGET_API_KEY }}" ]; then
+            echo "::error::NUGET_API_KEY is not configured for the release environment. Add a valid NuGet.org API key with package push permission."
+            exit 1
+          fi
 
-      - name: Warn when NuGet.org publish fails
-        if: ${{ steps.publish_nuget.outcome == 'failure' }}
-        run: echo "::warning::NuGet.org publish failed. Verify NUGET_API_KEY and package ownership on NuGet.org."
+      - name: Publish release to NuGet.org
+        run: dotnet nuget push "${{ env.PACKAGE_FILE }}" --source https://api.nuget.org/v3/index.json --api-key "${{ env.NUGET_API_KEY }}" --skip-duplicate
 
       - name: Create or update GitHub Release
         uses: softprops/action-gh-release@v2
