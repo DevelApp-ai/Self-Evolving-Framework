@@ -7,6 +7,9 @@ on:
   push:
     branches:
       - main
+  release:
+    types:
+      - published
 
 permissions:
   contents: read
@@ -117,10 +120,10 @@ jobs:
           done
 
   package-release:
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: (github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'release' && github.event.action == 'published')
     needs: build-test
     runs-on: ubuntu-latest
-    environment: ${{ vars.RELEASE_ENVIRONMENT || 'production' }}
+    environment: ${{ vars.RELEASE_ENVIRONMENT || 'shared' }}
     env:
       NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
     permissions:
@@ -139,7 +142,20 @@ jobs:
           dotnet-version: 8.0.x
 
       - name: Compute release version
-        run: echo "PACKAGE_VERSION=$(bash scripts/compute-next-semver.sh)" >> $GITHUB_ENV
+        run: |
+          if [ "${{ github.event_name }}" = "release" ]; then
+            release_tag="${{ github.event.release.tag_name }}"
+            release_version="${release_tag#v}"
+            if [ -z "$release_version" ]; then
+              echo "::error::Release tag '${release_tag}' does not contain a package version."
+              exit 1
+            fi
+
+            echo "PACKAGE_VERSION=$release_version" >> $GITHUB_ENV
+            exit 0
+          fi
+
+          echo "PACKAGE_VERSION=$(bash scripts/compute-next-semver.sh)" >> $GITHUB_ENV
 
       - name: Pack release
         run: dotnet pack src/SelfEvolvingFramework/SelfEvolvingFramework.csproj --configuration Release -p:PackageVersion=${{ env.PACKAGE_VERSION }} -p:GeneratePackageOnBuild=false --output artifacts

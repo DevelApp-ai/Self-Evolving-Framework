@@ -9,6 +9,8 @@ public sealed class PublishWorkflowConfigurationTests
 
         Assert.Contains("base_version=\"$(bash scripts/compute-next-semver.sh)\"", workflow);
         Assert.Contains("PACKAGE_VERSION=$(bash scripts/compute-next-semver.sh)", workflow);
+        Assert.Contains("if [ \"${{ github.event_name }}\" = \"release\" ]; then", workflow);
+        Assert.Contains("release_version=\"${release_tag#v}\"", workflow);
         Assert.DoesNotContain("SEMVER_BUMP=minor", workflow);
     }
 
@@ -17,9 +19,19 @@ public sealed class PublishWorkflowConfigurationTests
     {
         var workflow = ReadPublishWorkflow();
 
-        Assert.Contains("environment: ${{ vars.RELEASE_ENVIRONMENT || 'production' }}", workflow);
+        Assert.Contains("environment: ${{ vars.RELEASE_ENVIRONMENT || 'shared' }}", workflow);
         Assert.Contains("env:", workflow);
         Assert.Contains("NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}", workflow);
+    }
+
+    [Fact]
+    public void PublishWorkflow_Triggers_Release_Publishing_On_Release_Published()
+    {
+        var workflow = ReadPublishWorkflow();
+
+        Assert.Contains("release:", workflow);
+        Assert.Contains("- published", workflow);
+        Assert.Contains("github.event_name == 'release' && github.event.action == 'published'", workflow);
     }
 
     private static string ReadPublishWorkflow()
