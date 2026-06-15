@@ -230,7 +230,7 @@ jobs:
       - name: Ensure NuGet.org publishing is configured
         run: |
           if [ -z "${{ env.NUGET_API_KEY }}" ]; then
-            echo "::error::NUGET_API_KEY is not configured for the release environment. Add a valid NuGet.org API key with package push permission."
+            echo "::error::NUGET_API_KEY is not configured. Add a valid NuGet.org API key in repository, organization, or selected release environment secrets with package push permission."
             exit 1
           fi
 

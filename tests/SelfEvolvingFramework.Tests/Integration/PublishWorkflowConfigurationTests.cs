@@ -22,6 +22,7 @@ public sealed class PublishWorkflowConfigurationTests
         Assert.Contains("environment: ${{ vars.RELEASE_ENVIRONMENT || 'shared' }}", workflow);
         Assert.Contains("env:", workflow);
         Assert.Contains("NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}", workflow);
+        Assert.Contains("NUGET_API_KEY is not configured. Add a valid NuGet.org API key in repository, organization, or selected release environment secrets", workflow);
     }
 
     [Fact]
