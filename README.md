@@ -47,7 +47,7 @@ The library is configured as a NuGet package with `GeneratePackageOnBuild=true`.
 
 - Pull requests targeting `main` produce prerelease packages with semantic versions like `<next-minor>-pr.<pr>.<run>` and publish to GitHub Packages.
 - Pushes to `main` produce release packages with the next minor semantic version (for example `1.1.0`, then `1.2.0`) and publish to GitHub Packages.
-- Pushes to `main` also publish the same release package to NuGet.org. The workflow fails if `NUGET_API_KEY` is missing or does not have permission to push the package.
+- Pushes to `main` also publish the same release package to NuGet.org from the release environment (`production` by default, or `vars.RELEASE_ENVIRONMENT` when set). Configure `NUGET_API_KEY` in that environment; the workflow fails if it is missing or lacks package push permission.
 
 ## Implementation roadmap
 
