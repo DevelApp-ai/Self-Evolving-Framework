@@ -10,4 +10,4 @@
 - [x] Add mutator integration coverage proving routing toggles can explicitly force cloud-only or local-only execution paths for 1.3.0 release readiness.
 - [x] Add execution-budget-aware timeout harmonization with `EvolutionOrchestratorOptions`.
 - [ ] Wire runtime sandbox executor into agent-driven execution paths and block host execution in production mode.
-- [ ] Add explicit telemetry sink integration for external observability systems.
+- [x] Add explicit telemetry sink integration for external observability systems.

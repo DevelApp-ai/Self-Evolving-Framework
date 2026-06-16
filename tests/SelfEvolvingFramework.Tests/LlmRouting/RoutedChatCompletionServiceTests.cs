@@ -146,4 +146,68 @@ public sealed class RoutedChatCompletionServiceTests
         Assert.Equal("cloud-small", service.LastRoutingTelemetry!.SelectedEndpointId);
         Assert.Equal(1, service.LastRoutingTelemetry.TimeoutCount);
     }
+
+    [Fact]
+    public async Task GetChatMessageContentsAsync_Publishes_Routing_Telemetry_To_Configured_Sink()
+    {
+        var telemetrySink = new RecordingTelemetrySink();
+        var local = new DelegatingModelEndpoint(
+            "local-primary",
+            ModelProviderKind.LocalPrimary,
+            1000,
+            (_, _, _, _) => Task.FromResult<IReadOnlyList<ChatMessageContent>>([new ChatMessageContent(AuthorRole.Assistant, "local")]));
+        var service = new RoutedChatCompletionService(
+            [local],
+            new LocalFirstModelRouter(new DefaultFallbackPolicy(new RoutingPolicyOptions()), new CircuitBreakerEndpointHealthMonitor(), new RoutingPolicyOptions()),
+            new DefaultFallbackPolicy(new RoutingPolicyOptions()),
+            new CircuitBreakerEndpointHealthMonitor(),
+            telemetrySink: telemetrySink);
+        var history = new ChatHistory("system");
+        history.AddUserMessage("hello");
+
+        await service.GetChatMessageContentsAsync(history);
+
+        Assert.Single(telemetrySink.Published);
+        Assert.Equal("local-primary", telemetrySink.Published[0].SelectedEndpointId);
+    }
+
+    [Fact]
+    public async Task GetChatMessageContentsAsync_Does_Not_Fail_When_Telemetry_Sink_Throws()
+    {
+        var local = new DelegatingModelEndpoint(
+            "local-primary",
+            ModelProviderKind.LocalPrimary,
+            1000,
+            (_, _, _, _) => Task.FromResult<IReadOnlyList<ChatMessageContent>>([new ChatMessageContent(AuthorRole.Assistant, "local")]));
+        var service = new RoutedChatCompletionService(
+            [local],
+            new LocalFirstModelRouter(new DefaultFallbackPolicy(new RoutingPolicyOptions()), new CircuitBreakerEndpointHealthMonitor(), new RoutingPolicyOptions()),
+            new DefaultFallbackPolicy(new RoutingPolicyOptions()),
+            new CircuitBreakerEndpointHealthMonitor(),
+            telemetrySink: new ThrowingTelemetrySink());
+        var history = new ChatHistory("system");
+        history.AddUserMessage("hello");
+
+        var result = await service.GetChatMessageContentsAsync(history);
+
+        Assert.Single(result);
+        Assert.Equal("local", result[0].Content);
+    }
+
+    private sealed class RecordingTelemetrySink : IModelRoutingTelemetrySink
+    {
+        public List<ModelRoutingTelemetry> Published { get; } = [];
+
+        public ValueTask PublishAsync(ModelRoutingTelemetry telemetry, CancellationToken cancellationToken = default)
+        {
+            Published.Add(telemetry);
+            return ValueTask.CompletedTask;
+        }
+    }
+
+    private sealed class ThrowingTelemetrySink : IModelRoutingTelemetrySink
+    {
+        public ValueTask PublishAsync(ModelRoutingTelemetry telemetry, CancellationToken cancellationToken = default)
+            => ValueTask.FromException(new InvalidOperationException("sink unavailable"));
+    }
 }

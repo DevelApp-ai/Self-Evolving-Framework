@@ -10,7 +10,8 @@ public sealed class RoutedChatCompletionService(
     IFallbackPolicy fallbackPolicy,
     IEndpointHealthMonitor healthMonitor,
     CloudEndpointOptions? cloudEndpointOptions = null,
-    RoutingPolicyOptions? routingPolicyOptions = null) : IChatCompletionService
+    RoutingPolicyOptions? routingPolicyOptions = null,
+    IModelRoutingTelemetrySink? telemetrySink = null) : IChatCompletionService
 {
     private readonly IReadOnlyList<IModelEndpoint> _endpoints = endpoints ?? throw new ArgumentNullException(nameof(endpoints));
     private readonly IModelRouter _modelRouter = modelRouter ?? throw new ArgumentNullException(nameof(modelRouter));
@@ -18,6 +19,7 @@ public sealed class RoutedChatCompletionService(
     private readonly IEndpointHealthMonitor _healthMonitor = healthMonitor ?? throw new ArgumentNullException(nameof(healthMonitor));
     private readonly CloudEndpointOptions? _cloudEndpointOptions = cloudEndpointOptions;
     private readonly RoutingPolicyOptions _routingPolicyOptions = routingPolicyOptions ?? new();
+    private readonly IModelRoutingTelemetrySink? _telemetrySink = telemetrySink;
 
     public IReadOnlyDictionary<string, object?> Attributes { get; } = new Dictionary<string, object?>();
 
@@ -101,6 +103,7 @@ public sealed class RoutedChatCompletionService(
                     timeoutCount,
                     errorCount,
                     attempts.ToArray());
+                await PublishTelemetryAsync(LastRoutingTelemetry, cancellationToken);
                 return response;
             }
             catch (OperationCanceledException ex) when (!cancellationToken.IsCancellationRequested)
@@ -153,6 +156,7 @@ public sealed class RoutedChatCompletionService(
             timeoutCount,
             errorCount,
             attempts.ToArray());
+        await PublishTelemetryAsync(LastRoutingTelemetry, cancellationToken);
         throw new InvalidOperationException("All model endpoints failed. See LastRoutingTelemetry for routing details.");
     }
 
@@ -243,4 +247,21 @@ public sealed class RoutedChatCompletionService(
     }
 
     private static int EstimateTokens(int promptCharacterCount) => Math.Max(1, promptCharacterCount / 4);
+
+    private async Task PublishTelemetryAsync(ModelRoutingTelemetry telemetry, CancellationToken cancellationToken)
+    {
+        if (_telemetrySink is null)
+        {
+            return;
+        }
+
+        try
+        {
+            await _telemetrySink.PublishAsync(telemetry, cancellationToken);
+        }
+        catch
+        {
+            // Telemetry publishing is best effort and must not impact routing behavior.
+        }
+    }
 }
