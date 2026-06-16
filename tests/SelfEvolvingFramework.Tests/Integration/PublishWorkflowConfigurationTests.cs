@@ -3,15 +3,14 @@ namespace SelfEvolvingFramework.Tests.Integration;
 public sealed class PublishWorkflowConfigurationTests
 {
     [Fact]
-    public void PublishWorkflow_Uses_Patch_Version_Bump_For_Release_And_Prerelease()
+    public void PublishWorkflow_Uses_Minor_Version_Bump_For_Release_And_Prerelease()
     {
         var workflow = ReadPublishWorkflow();
 
-        Assert.Contains("base_version=\"$(bash scripts/compute-next-semver.sh)\"", workflow);
-        Assert.Contains("PACKAGE_VERSION=$(bash scripts/compute-next-semver.sh)", workflow);
+        Assert.Contains("base_version=\"$(SEMVER_BUMP=minor bash scripts/compute-next-semver.sh)\"", workflow);
+        Assert.Contains("PACKAGE_VERSION=$(SEMVER_BUMP=minor bash scripts/compute-next-semver.sh)", workflow);
         Assert.Contains("if [ \"${{ github.event_name }}\" = \"release\" ]; then", workflow);
         Assert.Contains("release_version=\"${release_tag#v}\"", workflow);
-        Assert.DoesNotContain("SEMVER_BUMP=minor", workflow);
     }
 
     [Fact]
