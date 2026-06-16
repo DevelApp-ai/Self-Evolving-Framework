@@ -2,6 +2,7 @@ using System.Text;
 using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.ChatCompletion;
 using SelfEvolvingFramework.Core;
+using SelfEvolvingFramework.LlmRouting;
 
 namespace SelfEvolvingFramework.Orchestration;
 
@@ -26,7 +27,8 @@ public sealed class SemanticKernelEvolutionMutator(
         ArgumentNullException.ThrowIfNull(feedback);
 
         var history = CreateChatHistory(candidate, feedback);
-        var responses = await _chatCompletionService.GetChatMessageContentsAsync(history, null, null, cancellationToken);
+        var executionSettings = CreateExecutionSettings();
+        var responses = await _chatCompletionService.GetChatMessageContentsAsync(history, executionSettings, null, cancellationToken);
         var mutatedSource = ExtractCode(responses.FirstOrDefault()?.Content);
 
         return string.IsNullOrWhiteSpace(mutatedSource)
@@ -122,6 +124,23 @@ public sealed class SemanticKernelEvolutionMutator(
 
         strippedValue = value;
         return false;
+    }
+
+    private static PromptExecutionSettings? CreateExecutionSettings()
+    {
+        var executionBudgetMilliseconds = ExecutionBudgetContext.CurrentExecutionBudgetMilliseconds;
+        if (executionBudgetMilliseconds is null or <= 0)
+        {
+            return null;
+        }
+
+        return new PromptExecutionSettings
+        {
+            ExtensionData = new Dictionary<string, object>(StringComparer.Ordinal)
+            {
+                [RoutingExecutionSettingsKeys.ExecutionBudgetMilliseconds] = executionBudgetMilliseconds.Value
+            }
+        };
     }
 
     internal static string? ExtractCode(string? modelResponse)

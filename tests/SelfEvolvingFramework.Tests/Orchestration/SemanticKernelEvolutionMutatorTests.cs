@@ -1,6 +1,7 @@
 using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.ChatCompletion;
 using SelfEvolvingFramework.Core;
+using SelfEvolvingFramework.LlmRouting;
 using SelfEvolvingFramework.Orchestration;
 
 namespace SelfEvolvingFramework.Tests.Orchestration;
@@ -89,11 +90,28 @@ public sealed class SemanticKernelEvolutionMutatorTests
         Assert.Same(seed, mutated);
     }
 
+    [Fact]
+    public async Task MutateAsync_Propagates_Execution_Budget_To_Routing_Settings()
+    {
+        var chat = new CapturingChatCompletionService("public static class Runner { public static int Execute() => 5; }");
+        var mutator = new SemanticKernelEvolutionMutator(chat, "Improve implementation.");
+        var seed = new CandidateProgram("public static class Runner { public static int Execute() => 1; }");
+
+        using var scope = ExecutionBudgetContext.BeginScope(250);
+        _ = await mutator.MutateAsync(seed, []);
+
+        var capturedSettings = Assert.Single(chat.CapturedExecutionSettings);
+        Assert.NotNull(capturedSettings);
+        Assert.NotNull(capturedSettings!.ExtensionData);
+        Assert.Equal(250, capturedSettings.ExtensionData[RoutingExecutionSettingsKeys.ExecutionBudgetMilliseconds]);
+    }
+
     private sealed class CapturingChatCompletionService(string response) : IChatCompletionService
     {
         public IReadOnlyDictionary<string, object?> Attributes { get; } = new Dictionary<string, object?>();
 
         public List<ChatHistory> CapturedHistories { get; } = [];
+        public List<PromptExecutionSettings?> CapturedExecutionSettings { get; } = [];
 
         public Task<IReadOnlyList<ChatMessageContent>> GetChatMessageContentsAsync(
             ChatHistory chatHistory,
@@ -102,6 +120,7 @@ public sealed class SemanticKernelEvolutionMutatorTests
             CancellationToken cancellationToken = default)
         {
             CapturedHistories.Add(new ChatHistory(chatHistory));
+            CapturedExecutionSettings.Add(executionSettings?.Clone());
 
             IReadOnlyList<ChatMessageContent> messages =
             [

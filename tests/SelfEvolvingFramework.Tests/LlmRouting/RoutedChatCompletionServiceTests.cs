@@ -1,0 +1,213 @@
+using Microsoft.SemanticKernel;
+using Microsoft.SemanticKernel.ChatCompletion;
+using SelfEvolvingFramework.LlmRouting;
+
+namespace SelfEvolvingFramework.Tests.LlmRouting;
+
+public sealed class RoutedChatCompletionServiceTests
+{
+    [Fact]
+    public async Task GetChatMessageContentsAsync_Falls_Back_To_Cloud_When_Local_Fails_And_Applies_Prompt_Cache_Key()
+    {
+        PromptExecutionSettings? cloudSettings = null;
+
+        var local = new DelegatingModelEndpoint(
+            "local-primary",
+            ModelProviderKind.LocalPrimary,
+            1000,
+            static (_, _, _, _) => throw new InvalidOperationException("local unavailable"));
+        var cloud = new DelegatingModelEndpoint(
+            "cloud-small",
+            ModelProviderKind.CloudSmall,
+            1000,
+            (_, settings, _, _) =>
+            {
+                cloudSettings = settings;
+                return Task.FromResult<IReadOnlyList<ChatMessageContent>>(
+                [
+                    new ChatMessageContent(AuthorRole.Assistant, "public static class Runner { public static int Execute() => 7; }")
+                ]);
+            });
+
+        var policyOptions = new RoutingPolicyOptions();
+        var service = new RoutedChatCompletionService(
+            [local, cloud],
+            new LocalFirstModelRouter(new DefaultFallbackPolicy(policyOptions), new CircuitBreakerEndpointHealthMonitor(), policyOptions),
+            new DefaultFallbackPolicy(policyOptions),
+            new CircuitBreakerEndpointHealthMonitor(),
+            new CloudEndpointOptions(
+                "MISTRAL_API_KEY",
+                "https://api.mistral.ai/v1",
+                "cache-key-v1",
+                new ModelEndpointOptions("cloud-small", "https://api.mistral.ai/v1", "mistral-small")));
+
+        var history = new ChatHistory("system");
+        history.AddUserMessage("hello");
+        var result = await service.GetChatMessageContentsAsync(history);
+
+        Assert.Single(result);
+        Assert.NotNull(cloudSettings);
+        Assert.NotNull(cloudSettings!.ExtensionData);
+        Assert.Equal("cache-key-v1", cloudSettings.ExtensionData["prompt_cache_key"]);
+        Assert.NotNull(service.LastRoutingTelemetry);
+        Assert.Equal("cloud-small", service.LastRoutingTelemetry!.SelectedEndpointId);
+        Assert.Equal(1, service.LastRoutingTelemetry.ErrorCount);
+    }
+
+    [Fact]
+    public async Task GetChatMessageContentsAsync_Does_Not_Fall_Back_When_Cloud_Fallback_Is_Disabled()
+    {
+        var cloudInvoked = false;
+
+        var local = new DelegatingModelEndpoint(
+            "local-primary",
+            ModelProviderKind.LocalPrimary,
+            1000,
+            static (_, _, _, _) => throw new InvalidOperationException("local unavailable"));
+        var cloud = new DelegatingModelEndpoint(
+            "cloud-small",
+            ModelProviderKind.CloudSmall,
+            1000,
+            (_, _, _, _) =>
+            {
+                cloudInvoked = true;
+                return Task.FromResult<IReadOnlyList<ChatMessageContent>>([new ChatMessageContent(AuthorRole.Assistant, "cloud")]);
+            });
+
+        var policyOptions = new RoutingPolicyOptions(EnableCloudFallback: false);
+        var service = new RoutedChatCompletionService(
+            [local, cloud],
+            new LocalFirstModelRouter(new DefaultFallbackPolicy(policyOptions), new CircuitBreakerEndpointHealthMonitor(), policyOptions),
+            new DefaultFallbackPolicy(policyOptions),
+            new CircuitBreakerEndpointHealthMonitor());
+
+        var history = new ChatHistory("system");
+        history.AddUserMessage("hello");
+
+        var exception = await Assert.ThrowsAsync<InvalidOperationException>(() => service.GetChatMessageContentsAsync(history));
+
+        Assert.Equal("All model endpoints failed. See LastRoutingTelemetry for routing details.", exception.Message);
+        Assert.False(cloudInvoked);
+    }
+
+    [Fact]
+    public async Task GetChatMessageContentsAsync_Uses_Execution_Budget_To_Cap_Endpoint_Timeout()
+    {
+        var cloudInvoked = false;
+        var local = new DelegatingModelEndpoint(
+            "local-primary",
+            ModelProviderKind.LocalPrimary,
+            1000,
+            async (_, _, _, cancellationToken) =>
+            {
+                await Task.Delay(200, cancellationToken);
+                return
+                [
+                    new ChatMessageContent(AuthorRole.Assistant, "local")
+                ];
+            });
+        var cloud = new DelegatingModelEndpoint(
+            "cloud-small",
+            ModelProviderKind.CloudSmall,
+            1000,
+            (_, _, _, _) =>
+            {
+                cloudInvoked = true;
+                return Task.FromResult<IReadOnlyList<ChatMessageContent>>(
+                [
+                    new ChatMessageContent(AuthorRole.Assistant, "cloud")
+                ]);
+            });
+
+        var policyOptions = new RoutingPolicyOptions(TimeoutBufferMilliseconds: 25);
+        var service = new RoutedChatCompletionService(
+            [local, cloud],
+            new LocalFirstModelRouter(new DefaultFallbackPolicy(policyOptions), new CircuitBreakerEndpointHealthMonitor(), policyOptions),
+            new DefaultFallbackPolicy(policyOptions),
+            new CircuitBreakerEndpointHealthMonitor(),
+            routingPolicyOptions: policyOptions);
+
+        var history = new ChatHistory("system");
+        history.AddUserMessage("hello");
+        var executionSettings = new PromptExecutionSettings
+        {
+            ExtensionData = new Dictionary<string, object>
+            {
+                [RoutingExecutionSettingsKeys.ExecutionBudgetMilliseconds] = 100
+            }
+        };
+
+        var result = await service.GetChatMessageContentsAsync(history, executionSettings);
+
+        Assert.True(cloudInvoked);
+        Assert.Single(result);
+        Assert.Equal("cloud", result[0].Content);
+        Assert.NotNull(service.LastRoutingTelemetry);
+        Assert.Equal("cloud-small", service.LastRoutingTelemetry!.SelectedEndpointId);
+        Assert.Equal(1, service.LastRoutingTelemetry.TimeoutCount);
+    }
+
+    [Fact]
+    public async Task GetChatMessageContentsAsync_Publishes_Routing_Telemetry_To_Configured_Sink()
+    {
+        var telemetrySink = new RecordingTelemetrySink();
+        var local = new DelegatingModelEndpoint(
+            "local-primary",
+            ModelProviderKind.LocalPrimary,
+            1000,
+            (_, _, _, _) => Task.FromResult<IReadOnlyList<ChatMessageContent>>([new ChatMessageContent(AuthorRole.Assistant, "local")]));
+        var service = new RoutedChatCompletionService(
+            [local],
+            new LocalFirstModelRouter(new DefaultFallbackPolicy(new RoutingPolicyOptions()), new CircuitBreakerEndpointHealthMonitor(), new RoutingPolicyOptions()),
+            new DefaultFallbackPolicy(new RoutingPolicyOptions()),
+            new CircuitBreakerEndpointHealthMonitor(),
+            telemetrySink: telemetrySink);
+        var history = new ChatHistory("system");
+        history.AddUserMessage("hello");
+
+        await service.GetChatMessageContentsAsync(history);
+
+        Assert.Single(telemetrySink.Published);
+        Assert.Equal("local-primary", telemetrySink.Published[0].SelectedEndpointId);
+    }
+
+    [Fact]
+    public async Task GetChatMessageContentsAsync_Does_Not_Fail_When_Telemetry_Sink_Throws()
+    {
+        var local = new DelegatingModelEndpoint(
+            "local-primary",
+            ModelProviderKind.LocalPrimary,
+            1000,
+            (_, _, _, _) => Task.FromResult<IReadOnlyList<ChatMessageContent>>([new ChatMessageContent(AuthorRole.Assistant, "local")]));
+        var service = new RoutedChatCompletionService(
+            [local],
+            new LocalFirstModelRouter(new DefaultFallbackPolicy(new RoutingPolicyOptions()), new CircuitBreakerEndpointHealthMonitor(), new RoutingPolicyOptions()),
+            new DefaultFallbackPolicy(new RoutingPolicyOptions()),
+            new CircuitBreakerEndpointHealthMonitor(),
+            telemetrySink: new ThrowingTelemetrySink());
+        var history = new ChatHistory("system");
+        history.AddUserMessage("hello");
+
+        var result = await service.GetChatMessageContentsAsync(history);
+
+        Assert.Single(result);
+        Assert.Equal("local", result[0].Content);
+    }
+
+    private sealed class RecordingTelemetrySink : IModelRoutingTelemetrySink
+    {
+        public List<ModelRoutingTelemetry> Published { get; } = [];
+
+        public ValueTask PublishAsync(ModelRoutingTelemetry telemetry, CancellationToken cancellationToken = default)
+        {
+            Published.Add(telemetry);
+            return ValueTask.CompletedTask;
+        }
+    }
+
+    private sealed class ThrowingTelemetrySink : IModelRoutingTelemetrySink
+    {
+        public ValueTask PublishAsync(ModelRoutingTelemetry telemetry, CancellationToken cancellationToken = default)
+            => ValueTask.FromException(new InvalidOperationException("sink unavailable"));
+    }
+}
