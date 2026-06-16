@@ -5,7 +5,7 @@
 - [x] Add unit tests for policy decisions, routing order, circuit breaker behavior, and cloud fallback telemetry behavior.
 - [x] Add integration test proving `SemanticKernelEvolutionMutator` can succeed via cloud fallback when local endpoint fails.
 - [x] Switch release target to minor semver progression for this feature stream.
-- [ ] Add concrete endpoint adapters for Ollama and Mistral HTTP APIs (beyond delegating test endpoint wrappers).
+- [x] Add concrete endpoint adapters for Ollama and Mistral HTTP APIs (beyond delegating test endpoint wrappers).
 - [ ] Add execution-budget-aware timeout harmonization with `EvolutionOrchestratorOptions`.
 - [ ] Wire runtime sandbox executor into agent-driven execution paths and block host execution in production mode.
 - [ ] Add explicit telemetry sink integration for external observability systems.
