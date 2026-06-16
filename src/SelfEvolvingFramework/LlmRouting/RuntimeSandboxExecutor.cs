@@ -56,7 +56,7 @@ public sealed class RuntimeSandboxExecutor : IRuntimeSandboxExecutor
             };
         }
 
-        return new ProcessStartInfo("/bin/bash", $"-lc \"{command}\"")
+        return new ProcessStartInfo("/bin/bash", $"-c \"{command}\"")
         {
             UseShellExecute = false,
             RedirectStandardOutput = true,
