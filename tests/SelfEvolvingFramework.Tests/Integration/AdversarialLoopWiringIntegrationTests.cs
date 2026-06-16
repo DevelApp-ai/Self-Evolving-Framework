@@ -1,5 +1,6 @@
 using SelfEvolvingFramework.Compilation;
 using SelfEvolvingFramework.Core;
+using SelfEvolvingFramework.LlmRouting;
 using SelfEvolvingFramework.Orchestration;
 using SelfEvolvingFramework.Security;
 
@@ -18,9 +19,13 @@ public sealed class AdversarialLoopWiringIntegrationTests
             new AdversarialTeamDefinition("team-4")
         };
 
+        var sandboxExecutor = new RecordingRuntimeSandboxExecutor();
         var reviewOrchestrator = new MultiTeamAdversarialReviewOrchestrator(
             new RoundRobinAdversarialRotationEngine(),
-            new SampleRoleExecutor(),
+            new SandboxGuardedAdversarialRoleExecutor(
+                new SampleRoleExecutor(),
+                sandboxExecutor,
+                new SandboxOptions(ExecutorType: "host", TimeoutMilliseconds: 1000)),
             new SequenceAdjudicationEngine(),
             new AdversarialWorkflowOptions(MaxRounds: 2));
         var reviewResult = await reviewOrchestrator.RunAsync(
@@ -47,6 +52,7 @@ public sealed class AdversarialLoopWiringIntegrationTests
         Assert.Equal(["prefer return value 2"], mutator.LastFeedback);
         Assert.NotNull(fitness.LastCandidate);
         Assert.Contains("=> 3;", fitness.LastCandidate!.SourceCode, StringComparison.Ordinal);
+        Assert.True(sandboxExecutor.Calls > 0);
     }
 
     private sealed class RecordingMutator : IEvolutionMutator
@@ -122,6 +128,17 @@ public sealed class AdversarialLoopWiringIntegrationTests
                 _calls == 1
                     ? [new FlawDecision("F1", FlawDisposition.Accepted, "must fix")]
                     : [new FlawDecision("F1", FlawDisposition.Rejected, "fixed")]);
+        }
+    }
+
+    private sealed class RecordingRuntimeSandboxExecutor : IRuntimeSandboxExecutor
+    {
+        public int Calls { get; private set; }
+
+        public Task<int> ExecuteShellAsync(string command, SandboxOptions options, CancellationToken cancellationToken = default)
+        {
+            Calls++;
+            return Task.FromResult(0);
         }
     }
 }
