@@ -9,13 +9,15 @@ public sealed class RoutedChatCompletionService(
     IModelRouter modelRouter,
     IFallbackPolicy fallbackPolicy,
     IEndpointHealthMonitor healthMonitor,
-    CloudEndpointOptions? cloudEndpointOptions = null) : IChatCompletionService
+    CloudEndpointOptions? cloudEndpointOptions = null,
+    RoutingPolicyOptions? routingPolicyOptions = null) : IChatCompletionService
 {
     private readonly IReadOnlyList<IModelEndpoint> _endpoints = endpoints ?? throw new ArgumentNullException(nameof(endpoints));
     private readonly IModelRouter _modelRouter = modelRouter ?? throw new ArgumentNullException(nameof(modelRouter));
     private readonly IFallbackPolicy _fallbackPolicy = fallbackPolicy ?? throw new ArgumentNullException(nameof(fallbackPolicy));
     private readonly IEndpointHealthMonitor _healthMonitor = healthMonitor ?? throw new ArgumentNullException(nameof(healthMonitor));
     private readonly CloudEndpointOptions? _cloudEndpointOptions = cloudEndpointOptions;
+    private readonly RoutingPolicyOptions _routingPolicyOptions = routingPolicyOptions ?? new();
 
     public IReadOnlyDictionary<string, object?> Attributes { get; } = new Dictionary<string, object?>();
 
@@ -59,12 +61,13 @@ public sealed class RoutedChatCompletionService(
         var errorCount = 0;
         var promptCacheApplied = false;
         var bypassReason = _fallbackPolicy.EvaluateLocalBypass(invocationContext);
+        var invocationStopwatch = Stopwatch.StartNew();
 
         foreach (var endpoint in route)
         {
             var started = Stopwatch.StartNew();
             using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-            timeoutCts.CancelAfter(TimeSpan.FromMilliseconds(endpoint.TimeoutMilliseconds));
+            timeoutCts.CancelAfter(TimeSpan.FromMilliseconds(GetEffectiveTimeoutMilliseconds(endpoint.TimeoutMilliseconds, executionSettings, invocationStopwatch.Elapsed)));
 
             try
             {
@@ -176,6 +179,42 @@ public sealed class RoutedChatCompletionService(
             bool b => b,
             string s when bool.TryParse(s, out var parsed) => parsed,
             _ => false
+        };
+    }
+
+    private int GetEffectiveTimeoutMilliseconds(
+        int endpointTimeoutMilliseconds,
+        PromptExecutionSettings? executionSettings,
+        TimeSpan elapsed)
+    {
+        var executionBudgetMilliseconds = GetIntegerValue(executionSettings?.ExtensionData, RoutingExecutionSettingsKeys.ExecutionBudgetMilliseconds);
+        if (executionBudgetMilliseconds is null or <= 0)
+        {
+            return endpointTimeoutMilliseconds;
+        }
+
+        var remainingBudget = executionBudgetMilliseconds.Value - (int)elapsed.TotalMilliseconds - _routingPolicyOptions.TimeoutBufferMilliseconds;
+        if (remainingBudget <= 0)
+        {
+            return 1;
+        }
+
+        return Math.Min(endpointTimeoutMilliseconds, remainingBudget);
+    }
+
+    private static int? GetIntegerValue(IDictionary<string, object>? data, string key)
+    {
+        if (data is null || !data.TryGetValue(key, out var value) || value is null)
+        {
+            return null;
+        }
+
+        return value switch
+        {
+            int i => i,
+            long l when l <= int.MaxValue && l >= int.MinValue => (int)l,
+            string s when int.TryParse(s, out var parsed) => parsed,
+            _ => null
         };
     }
 

@@ -89,4 +89,61 @@ public sealed class RoutedChatCompletionServiceTests
         Assert.Equal("All model endpoints failed. See LastRoutingTelemetry for routing details.", exception.Message);
         Assert.False(cloudInvoked);
     }
+
+    [Fact]
+    public async Task GetChatMessageContentsAsync_Uses_Execution_Budget_To_Cap_Endpoint_Timeout()
+    {
+        var cloudInvoked = false;
+        var local = new DelegatingModelEndpoint(
+            "local-primary",
+            ModelProviderKind.LocalPrimary,
+            1000,
+            async (_, _, _, cancellationToken) =>
+            {
+                await Task.Delay(200, cancellationToken);
+                return
+                [
+                    new ChatMessageContent(AuthorRole.Assistant, "local")
+                ];
+            });
+        var cloud = new DelegatingModelEndpoint(
+            "cloud-small",
+            ModelProviderKind.CloudSmall,
+            1000,
+            (_, _, _, _) =>
+            {
+                cloudInvoked = true;
+                return Task.FromResult<IReadOnlyList<ChatMessageContent>>(
+                [
+                    new ChatMessageContent(AuthorRole.Assistant, "cloud")
+                ]);
+            });
+
+        var policyOptions = new RoutingPolicyOptions(TimeoutBufferMilliseconds: 25);
+        var service = new RoutedChatCompletionService(
+            [local, cloud],
+            new LocalFirstModelRouter(new DefaultFallbackPolicy(policyOptions), new CircuitBreakerEndpointHealthMonitor(), policyOptions),
+            new DefaultFallbackPolicy(policyOptions),
+            new CircuitBreakerEndpointHealthMonitor(),
+            routingPolicyOptions: policyOptions);
+
+        var history = new ChatHistory("system");
+        history.AddUserMessage("hello");
+        var executionSettings = new PromptExecutionSettings
+        {
+            ExtensionData = new Dictionary<string, object>
+            {
+                [RoutingExecutionSettingsKeys.ExecutionBudgetMilliseconds] = 100
+            }
+        };
+
+        var result = await service.GetChatMessageContentsAsync(history, executionSettings);
+
+        Assert.True(cloudInvoked);
+        Assert.Single(result);
+        Assert.Equal("cloud", result[0].Content);
+        Assert.NotNull(service.LastRoutingTelemetry);
+        Assert.Equal("cloud-small", service.LastRoutingTelemetry!.SelectedEndpointId);
+        Assert.Equal(1, service.LastRoutingTelemetry.TimeoutCount);
+    }
 }

@@ -57,6 +57,7 @@ public sealed class EvolutionOrchestrator(
             throw new ArgumentOutOfRangeException(nameof(options), "Execution budget must be greater than zero.");
         }
 
+        using var executionBudgetScope = ExecutionBudgetContext.BeginScope(_options.ExecutionBudgetMilliseconds);
         using var budgetCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         budgetCancellation.CancelAfter(TimeSpan.FromMilliseconds(_options.ExecutionBudgetMilliseconds));
 

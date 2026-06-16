@@ -8,6 +8,6 @@
 - [x] Add concrete endpoint adapters for Ollama and Mistral HTTP APIs (beyond delegating test endpoint wrappers).
 - [x] Add explicit routing toggles (`EnableLocalRouting`, `EnableCloudFallback`) so local-first/cloud-fallback behavior can be configured per environment and release rollout.
 - [x] Add mutator integration coverage proving routing toggles can explicitly force cloud-only or local-only execution paths for 1.3.0 release readiness.
-- [ ] Add execution-budget-aware timeout harmonization with `EvolutionOrchestratorOptions`.
+- [x] Add execution-budget-aware timeout harmonization with `EvolutionOrchestratorOptions`.
 - [ ] Wire runtime sandbox executor into agent-driven execution paths and block host execution in production mode.
 - [ ] Add explicit telemetry sink integration for external observability systems.
