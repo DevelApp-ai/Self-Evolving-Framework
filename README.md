@@ -28,6 +28,16 @@ var result = await orchestrator.EvolveOnceAsync(
     cancellationToken);
 ```
 
+### Local-first / cloud-fallback routing options
+
+Use `RoutingPolicyOptions` to explicitly control whether local-first routing and cloud fallback are enabled:
+
+```csharp
+var routingOptions = new RoutingPolicyOptions(
+    EnableLocalRouting: true,
+    EnableCloudFallback: true);
+```
+
 For an end-to-end wiring example that combines mutation, fitness, and the multi-team adversarial review loop, see:
 
 - `tests/SelfEvolvingFramework.Tests/Integration/AdversarialLoopWiringIntegrationTests.cs`
@@ -46,7 +56,7 @@ The library is configured as a NuGet package with `GeneratePackageOnBuild=true`.
 ## Versioning and publishing
 
 - Pull requests targeting `main` produce prerelease packages with semantic versions like `<next-patch>-pr.<pr>.<run>` and publish to GitHub Packages.
-- Pushes to `main` produce release packages with the next minor semantic version for the active local-first/cloud-fallback feature stream (current release: `1.3.0`; next minor release target: `1.4.0`) and publish to GitHub Packages.
+- Pushes to `main` produce release packages with the next minor semantic version for the active local-first/cloud-fallback feature stream (next minor release target: `1.3.0`) and publish to GitHub Packages.
 - Pushes to `main` and published GitHub Releases publish the same release package to NuGet.org from the release environment (`shared` by default, or `vars.RELEASE_ENVIRONMENT` when set). Configure `NUGET_API_KEY` as a repository, organization, or release-environment secret; the workflow fails if it is missing or lacks package push permission.
 
 ## Implementation roadmap

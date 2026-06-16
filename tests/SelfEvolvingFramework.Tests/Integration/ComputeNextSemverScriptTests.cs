@@ -40,6 +40,15 @@ public sealed class ComputeNextSemverScriptTests
     }
 
     [Fact]
+    public void ComputeNextSemver_Targets_1_3_0_From_1_2_1_When_Using_Minor_Bump()
+    {
+        const string tags = "1.2.1";
+
+        var version = RunScriptWithTags(tags, semverBump: "minor");
+        Assert.Equal("1.3.0", version);
+    }
+
+    [Fact]
     public void ComputeNextSemver_Increments_Major_And_Resets_Minor_And_Patch_When_Configured()
     {
         const string tags = """

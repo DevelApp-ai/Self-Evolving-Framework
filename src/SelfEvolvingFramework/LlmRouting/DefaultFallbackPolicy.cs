@@ -27,6 +27,11 @@ public sealed class DefaultFallbackPolicy(RoutingPolicyOptions? options = null) 
     public bool ShouldFallback(ModelInvocationContext invocationContext, ModelEndpointAttemptTelemetry failedAttempt)
     {
         _ = invocationContext;
+        if (!_options.EnableCloudFallback)
+        {
+            return false;
+        }
+
         return failedAttempt.FailureReason is ModelFallbackReason.EndpointTimedOut or ModelFallbackReason.EndpointFailure;
     }
 }

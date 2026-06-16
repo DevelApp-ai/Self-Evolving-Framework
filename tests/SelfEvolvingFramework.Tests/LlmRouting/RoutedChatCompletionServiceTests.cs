@@ -53,4 +53,40 @@ public sealed class RoutedChatCompletionServiceTests
         Assert.Equal("cloud-small", service.LastRoutingTelemetry!.SelectedEndpointId);
         Assert.Equal(1, service.LastRoutingTelemetry.ErrorCount);
     }
+
+    [Fact]
+    public async Task GetChatMessageContentsAsync_Does_Not_Fall_Back_When_Cloud_Fallback_Is_Disabled()
+    {
+        var cloudInvoked = false;
+
+        var local = new DelegatingModelEndpoint(
+            "local-primary",
+            ModelProviderKind.LocalPrimary,
+            1000,
+            static (_, _, _, _) => throw new InvalidOperationException("local unavailable"));
+        var cloud = new DelegatingModelEndpoint(
+            "cloud-small",
+            ModelProviderKind.CloudSmall,
+            1000,
+            (_, _, _, _) =>
+            {
+                cloudInvoked = true;
+                return Task.FromResult<IReadOnlyList<ChatMessageContent>>([new ChatMessageContent(AuthorRole.Assistant, "cloud")]);
+            });
+
+        var policyOptions = new RoutingPolicyOptions(EnableCloudFallback: false);
+        var service = new RoutedChatCompletionService(
+            [local, cloud],
+            new LocalFirstModelRouter(new DefaultFallbackPolicy(policyOptions), new CircuitBreakerEndpointHealthMonitor(), policyOptions),
+            new DefaultFallbackPolicy(policyOptions),
+            new CircuitBreakerEndpointHealthMonitor());
+
+        var history = new ChatHistory("system");
+        history.AddUserMessage("hello");
+
+        var exception = await Assert.ThrowsAsync<InvalidOperationException>(() => service.GetChatMessageContentsAsync(history));
+
+        Assert.Equal("All model endpoints failed. See LastRoutingTelemetry for routing details.", exception.Message);
+        Assert.False(cloudInvoked);
+    }
 }

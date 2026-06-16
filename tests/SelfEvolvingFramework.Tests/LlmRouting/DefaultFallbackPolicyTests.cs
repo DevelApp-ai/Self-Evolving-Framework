@@ -35,4 +35,14 @@ public sealed class DefaultFallbackPolicyTests
         Assert.True(policy.ShouldFallback(invocation, timeout));
         Assert.True(policy.ShouldFallback(invocation, failure));
     }
+
+    [Fact]
+    public void ShouldFallback_Returns_False_When_Cloud_Fallback_Is_Disabled()
+    {
+        var policy = new DefaultFallbackPolicy(new RoutingPolicyOptions(EnableCloudFallback: false));
+        var invocation = new ModelInvocationContext(100);
+        var failure = new ModelEndpointAttemptTelemetry("local", ModelProviderKind.LocalPrimary, TimeSpan.FromMilliseconds(1), false, false, "failure", ModelFallbackReason.EndpointFailure);
+
+        Assert.False(policy.ShouldFallback(invocation, failure));
+    }
 }

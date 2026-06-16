@@ -22,13 +22,25 @@ public sealed class LocalFirstModelRouter(
             .Where(e => e.ProviderKind is not ModelProviderKind.LocalPrimary and not ModelProviderKind.LocalDiagnostic)
             .Where(e => _healthMonitor.IsHealthy(e.EndpointId, now))
             .ToArray();
+        var cloudRoute = _options.EnableCloudFallback ? clouds : [];
 
         var route = new List<IModelEndpoint>(endpoints.Count);
+        if (!_options.EnableLocalRouting)
+        {
+            route.AddRange(cloudRoute);
+            if (route.Count == 0)
+            {
+                route.AddRange(locals);
+            }
+
+            return route;
+        }
+
         var bypassReason = _fallbackPolicy.EvaluateLocalBypass(invocationContext);
 
         if (bypassReason is not ModelFallbackReason.None)
         {
-            route.AddRange(clouds);
+            route.AddRange(cloudRoute);
             route.AddRange(locals);
             return route;
         }
@@ -37,13 +49,13 @@ public sealed class LocalFirstModelRouter(
         {
             route.AddRange(locals.Where(e => e.ProviderKind == ModelProviderKind.LocalDiagnostic));
             route.AddRange(locals.Where(e => e.ProviderKind == ModelProviderKind.LocalPrimary));
-            route.AddRange(clouds);
+            route.AddRange(cloudRoute);
             return route;
         }
 
         route.AddRange(locals.Where(e => e.ProviderKind == ModelProviderKind.LocalPrimary));
         route.AddRange(locals.Where(e => e.ProviderKind == ModelProviderKind.LocalDiagnostic));
-        route.AddRange(clouds);
+        route.AddRange(cloudRoute);
         return route;
     }
 }

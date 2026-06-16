@@ -29,6 +29,28 @@ public sealed class LocalFirstModelRouterTests
         Assert.Equal("cloud-small", route[0].EndpointId);
     }
 
+    [Fact]
+    public void BuildRoute_Uses_Cloud_First_When_Local_Routing_Is_Disabled()
+    {
+        var router = CreateRouter(new RoutingPolicyOptions(EnableLocalRouting: false));
+        var endpoints = CreateEndpoints();
+
+        var route = router.BuildRoute(new ModelInvocationContext(100), endpoints);
+
+        Assert.Equal("cloud-small", route[0].EndpointId);
+    }
+
+    [Fact]
+    public void BuildRoute_Does_Not_Include_Cloud_When_Cloud_Fallback_Is_Disabled()
+    {
+        var router = CreateRouter(new RoutingPolicyOptions(EnableCloudFallback: false));
+        var endpoints = CreateEndpoints();
+
+        var route = router.BuildRoute(new ModelInvocationContext(100), endpoints);
+
+        Assert.DoesNotContain(route, endpoint => endpoint.ProviderKind is not ModelProviderKind.LocalPrimary and not ModelProviderKind.LocalDiagnostic);
+    }
+
     private static LocalFirstModelRouter CreateRouter(RoutingPolicyOptions? options = null)
         => new(new DefaultFallbackPolicy(options), new CircuitBreakerEndpointHealthMonitor(), options);
 

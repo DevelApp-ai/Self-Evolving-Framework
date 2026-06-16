@@ -6,6 +6,7 @@
 - [x] Add integration test proving `SemanticKernelEvolutionMutator` can succeed via cloud fallback when local endpoint fails.
 - [x] Switch release target to minor semver progression for this feature stream.
 - [x] Add concrete endpoint adapters for Ollama and Mistral HTTP APIs (beyond delegating test endpoint wrappers).
+- [x] Add explicit routing toggles (`EnableLocalRouting`, `EnableCloudFallback`) so local-first/cloud-fallback behavior can be configured per environment and release rollout.
 - [ ] Add execution-budget-aware timeout harmonization with `EvolutionOrchestratorOptions`.
 - [ ] Wire runtime sandbox executor into agent-driven execution paths and block host execution in production mode.
 - [ ] Add explicit telemetry sink integration for external observability systems.
