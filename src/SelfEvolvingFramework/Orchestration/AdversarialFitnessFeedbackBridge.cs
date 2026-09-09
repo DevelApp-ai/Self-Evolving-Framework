@@ -50,7 +50,7 @@ public sealed class AdversarialFitnessFeedbackBridge(AdversarialFitnessScoringOp
                 }
             }
 
-            if (acceptedCount > 0 && !string.Equals(round.CandidateBeforeRound.SourceCode, round.CandidateAfterRound.SourceCode, StringComparison.Ordinal))
+            if (acceptedCount > 0 && !string.Equals(round.CandidateBeforeRound.SourceMaterial, round.CandidateAfterRound.SourceMaterial, StringComparison.Ordinal))
             {
                 adjusted += _options.SuccessfulFixReward;
             }

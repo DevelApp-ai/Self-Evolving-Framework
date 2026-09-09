@@ -9,7 +9,9 @@ public sealed class RoslynAstSecurityEvaluator(AstSecurityOptions? options = nul
 {
     private readonly AstSecurityOptions _options = options ?? new AstSecurityOptions();
 
-    public SecurityEvaluationResult Evaluate(string sourceCode)
+    public CandidateFormat Format => CandidateFormat.CSharp;
+
+    public SecurityEvaluationResult Evaluate(string sourceMaterial)
     {
         var tree = CSharpSyntaxTree.ParseText(sourceCode);
         var root = tree.GetRoot();

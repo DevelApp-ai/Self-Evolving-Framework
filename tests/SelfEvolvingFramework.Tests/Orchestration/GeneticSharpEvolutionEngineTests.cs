@@ -12,7 +12,7 @@ public sealed class GeneticSharpEvolutionEngineTests
         var crossover = new PassthroughCrossover();
         var fitness = new ScoreBySourceFitnessEvaluator();
         var engine = new GeneticSharpEvolutionEngine(fitness, mutator, crossover);
-        var seed = new CandidateProgram("public static class Runner { public static int Execute() => 1; }");
+        var seed = CandidateProgram.FromCSharp("public static class Runner { public static int Execute() => 1; }");
 
         var best = await engine.EvolveAsync(
             seed,
@@ -23,7 +23,7 @@ public sealed class GeneticSharpEvolutionEngineTests
                 CrossoverProbability: 0,
                 MutationProbability: 0));
 
-        Assert.Equal(seed.SourceCode, best.SourceCode);
+        Assert.Equal(seed.SourceMaterial, best.SourceMaterial);
         Assert.Equal(0, mutator.CallCount);
         Assert.True(fitness.CallCount > 0);
     }
@@ -37,7 +37,7 @@ public sealed class GeneticSharpEvolutionEngineTests
             new PassthroughCrossover());
 
         await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() => engine.EvolveAsync(
-            new CandidateProgram("public static class Runner { }"),
+            CandidateProgram.FromCSharp("public static class Runner { }"),
             new GeneticSharpEvolutionEngineOptions(MinPopulationSize: 1)));
     }
 
@@ -47,7 +47,7 @@ public sealed class GeneticSharpEvolutionEngineTests
         var mutator = new RecordingMutator();
         var fitness = new ScoreBySourceFitnessEvaluator();
         var engine = new GeneticSharpEvolutionEngine(fitness, mutator, new PassthroughCrossover());
-        var seed = new CandidateProgram("public static class Runner { public static int Execute() => 1; }");
+        var seed = CandidateProgram.FromCSharp("public static class Runner { public static int Execute() => 1; }");
 
         var best = await engine.EvolveAsync(
             seed,
@@ -59,7 +59,7 @@ public sealed class GeneticSharpEvolutionEngineTests
                 CrossoverProbability: 0,
                 MutationProbability: 0));
 
-        Assert.Equal(seed.SourceCode, best.SourceCode);
+        Assert.Equal(seed.SourceMaterial, best.SourceMaterial);
         Assert.True(fitness.CallCount > 0);
     }
 
@@ -72,7 +72,7 @@ public sealed class GeneticSharpEvolutionEngineTests
             new PassthroughCrossover());
 
         await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() => engine.EvolveAsync(
-            new CandidateProgram("public static class Runner { }"),
+            CandidateProgram.FromCSharp("public static class Runner { }"),
             new GeneticSharpEvolutionEngineOptions(SelectionStrategy: (GeneticSharpSelectionStrategy)999)));
     }
 
@@ -83,7 +83,7 @@ public sealed class GeneticSharpEvolutionEngineTests
         var mutator = new RecordingMutator();
         var fitness = new ScoreBySourceFitnessEvaluator();
         var engine = new GeneticSharpEvolutionEngine(fitness, mutator, new PassthroughCrossover());
-        var seed = new CandidateProgram("public static class Runner { public static int Execute() => 1; }");
+        var seed = CandidateProgram.FromCSharp("public static class Runner { public static int Execute() => 1; }");
 
         var best = await engine.EvolveAsync(
             seed,
@@ -113,7 +113,7 @@ public sealed class GeneticSharpEvolutionEngineTests
             new PassthroughCrossover());
 
         await Assert.ThrowsAsync<InvalidOperationException>(() => engine.EvolveAsync(
-            new CandidateProgram("public static class Runner { public static int Execute() => 1; }"),
+            CandidateProgram.FromCSharp("public static class Runner { public static int Execute() => 1; }"),
             new GeneticSharpEvolutionEngineOptions(
                 MinPopulationSize: 4,
                 MaxPopulationSize: 4,
@@ -133,14 +133,16 @@ public sealed class GeneticSharpEvolutionEngineTests
             CancellationToken cancellationToken = default)
         {
             CallCount++;
-            return Task.FromResult(new CandidateProgram(
-                candidate.SourceCode.Replace("=> 1", "=> 2", StringComparison.Ordinal),
+            return Task.FromResult(CandidateProgram.FromCSharp(
+                candidate.SourceMaterial.Replace("=> 1", "=> 2", StringComparison.Ordinal),
+                candidate.ParentId,
                 candidate.Id));
         }
     }
 
     private sealed class PassthroughCrossover : IEvolutionCrossover
     {
+        public CandidateFormat Format => CandidateFormat.CSharp;
         public Task<CandidateProgram> CrossoverAsync(
             CandidateProgram parentA,
             CandidateProgram parentB,
@@ -155,7 +157,7 @@ public sealed class GeneticSharpEvolutionEngineTests
         public Task<double> EvaluateAsync(CandidateProgram candidate, CancellationToken cancellationToken = default)
         {
             CallCount++;
-            return Task.FromResult(candidate.SourceCode.Contains("=> 2", StringComparison.Ordinal) ? 10d : 1d);
+            return Task.FromResult(candidate.SourceMaterial.Contains("=> 2", StringComparison.Ordinal) ? 10d : 1d);
         }
     }
 }

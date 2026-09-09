@@ -21,6 +21,8 @@ public sealed class SemanticKernelEvolutionMutator(
 
     private readonly string _systemPrompt = string.IsNullOrWhiteSpace(systemPrompt) ? DefaultSystemPrompt : systemPrompt;
 
+    public CandidateFormat Format => CandidateFormat.CSharp;
+
     public async Task<CandidateProgram> MutateAsync(CandidateProgram candidate, IReadOnlyList<string> feedback, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(candidate);
@@ -33,13 +35,13 @@ public sealed class SemanticKernelEvolutionMutator(
 
         return string.IsNullOrWhiteSpace(mutatedSource)
             ? candidate
-            : new CandidateProgram(mutatedSource, candidate.Id);
+            : CandidateProgram.FromCSharp(mutatedSource, candidate.ParentId, candidate.Id);
     }
 
     internal ChatHistory CreateChatHistory(CandidateProgram candidate, IReadOnlyList<string> feedback)
     {
         var history = new ChatHistory(_systemPrompt);
-        history.AddUserMessage(BuildMutationPrompt(candidate.SourceCode, feedback));
+        history.AddUserMessage(BuildMutationPrompt(candidate.SourceMaterial, feedback));
         return history;
     }
 
