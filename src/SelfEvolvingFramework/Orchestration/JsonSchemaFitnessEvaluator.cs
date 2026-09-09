@@ -75,7 +75,7 @@ public sealed class JsonSchemaFitnessEvaluator : IFitnessEvaluator
         var root = jsonDoc.RootElement;
         if (!root.TryGetProperty("properties", out var properties) ||
             properties.ValueKind != JsonValueKind.Object)
-            return 0.5;
+            return 0;
 
         var totalProperties = 0;
         var validProperties = 0;
@@ -96,7 +96,7 @@ public sealed class JsonSchemaFitnessEvaluator : IFitnessEvaluator
             }
         }
 
-        return totalProperties > 0 ? (double)validProperties / totalProperties : 0.5;
+        return totalProperties > 0 ? (double)validProperties / totalProperties : 0;
     }
 
     private static bool HasRequiredFieldsDefined(JsonDocument jsonDoc)
@@ -152,6 +152,6 @@ public sealed class JsonSchemaFitnessEvaluator : IFitnessEvaluator
             }
         }
 
-        return ruleCount > 0 ? score / ruleCount : 0.5;
+        return ruleCount > 0 ? score / ruleCount : 0;
     }
 }
