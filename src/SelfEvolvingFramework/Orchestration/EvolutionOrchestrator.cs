@@ -6,15 +6,31 @@ using SelfEvolvingFramework.Security;
 namespace SelfEvolvingFramework.Orchestration;
 
 public sealed class EvolutionOrchestrator(
-    IAstSecurityEvaluator securityEvaluator,
-    IDynamicCompilationService compilationService,
-    IFitnessEvaluator fitnessEvaluator,
-    IEvolutionMutator mutator,
     EvolutionOrchestratorOptions? options = null,
     AdversarialFitnessFeedbackBridge? adversarialFitnessFeedbackBridge = null)
 {
     private readonly EvolutionOrchestratorOptions _options = options ?? new();
     private readonly AdversarialFitnessFeedbackBridge _adversarialFitnessFeedbackBridge = adversarialFitnessFeedbackBridge ?? new();
+    private readonly Dictionary<CandidateFormat, IEvolutionMutator> _mutators = new();
+    private readonly Dictionary<CandidateFormat, IEvolutionCrossover> _crossovers = new();
+    private readonly Dictionary<CandidateFormat, IAstSecurityEvaluator> _securityEvaluators = new();
+    private IDynamicCompilationService? _compilationService;
+    private IFitnessEvaluator? _fitnessEvaluator;
+
+    public void AddMutator(IEvolutionMutator mutator)
+        => _mutators[mutator.Format] = mutator;
+
+    public void AddCrossover(IEvolutionCrossover crossover)
+        => _crossovers[crossover.Format] = crossover;
+
+    public void AddSecurityEvaluator(IAstSecurityEvaluator evaluator)
+        => _securityEvaluators[evaluator.Format] = evaluator;
+
+    public void SetCompilationService(IDynamicCompilationService compilationService)
+        => _compilationService = compilationService;
+
+    public void SetFitnessEvaluator(IFitnessEvaluator fitnessEvaluator)
+        => _fitnessEvaluator = fitnessEvaluator;
 
     public async Task<EvolutionResult> EvolveOnceAsync(
         CandidateProgram seed,
@@ -61,6 +77,15 @@ public sealed class EvolutionOrchestrator(
         using var budgetCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         budgetCancellation.CancelAfter(TimeSpan.FromMilliseconds(_options.ExecutionBudgetMilliseconds));
 
+        if (_mutators.Count == 0)
+            throw new InvalidOperationException("No mutators registered. Call AddMutator() first.");
+
+        if (!_mutators.TryGetValue(seed.Format, out var mutator))
+            throw new InvalidOperationException($"No mutator registered for format: {seed.Format}");
+
+        if (_fitnessEvaluator is null)
+            throw new InvalidOperationException("No fitness evaluator registered. Call SetFitnessEvaluator() first.");
+
         var mutationFeedback = feedback is null or { Count: 0 } ? Array.Empty<string>() : feedback.ToArray();
         var roundsForFitness = adversarialRounds is null or { Count: 0 } ? Array.Empty<AdversarialRoundResult>() : adversarialRounds.ToArray();
         CandidateProgram mutated;
@@ -91,26 +116,42 @@ public sealed class EvolutionOrchestrator(
             ? mutated
             : roundsForFitness[^1].CandidateAfterRound;
 
+        if (_securityEvaluators.Count == 0)
+            throw new InvalidOperationException("No security evaluators registered. Call AddSecurityEvaluator() first.");
+
+        if (!_securityEvaluators.TryGetValue(candidateForEvaluation.Format, out var securityEvaluator))
+            throw new InvalidOperationException($"No security evaluator registered for format: {candidateForEvaluation.Format}");
+
         var securityStopwatch = Stopwatch.StartNew();
-        var security = securityEvaluator.Evaluate(candidateForEvaluation.SourceCode);
+        var security = securityEvaluator.Evaluate(candidateForEvaluation.SourceMaterial);
         securityEvaluationDuration = securityStopwatch.Elapsed;
         if (!security.IsAllowed)
         {
             return BuildResult(candidateForEvaluation, false, double.NegativeInfinity, PrefixDiagnostics("security", security.Violations));
         }
 
-        var compilationStopwatch = Stopwatch.StartNew();
-        var compilation = compilationService.Compile(candidateForEvaluation.SourceCode);
-        compilationDuration = compilationStopwatch.Elapsed;
-        if (!compilation.Success)
+        if (candidateForEvaluation.Format == CandidateFormat.CSharp && _compilationService is not null)
         {
-            return BuildResult(candidateForEvaluation, false, 0, PrefixDiagnostics("compiler", compilation.Diagnostics));
+            var compilationStopwatch = Stopwatch.StartNew();
+            var compilation = _compilationService.Compile(candidateForEvaluation);
+            compilationDuration = compilationStopwatch.Elapsed;
+            if (!compilation.Success)
+            {
+                return BuildResult(candidateForEvaluation, false, 0, PrefixDiagnostics("compiler", compilation.Diagnostics));
+            }
+            candidateForEvaluation.CompilationResult = compilation;
+            candidateForEvaluation.CompiledAssembly = compilation.AssemblyBytes is not null
+                ? Assembly.Load(compilation.AssemblyBytes)
+                : null;
         }
+
+        if (_fitnessEvaluator is null)
+            throw new InvalidOperationException("No fitness evaluator registered. Call SetFitnessEvaluator() first.");
 
         var fitnessStopwatch = Stopwatch.StartNew();
         try
         {
-            var baseFitness = await fitnessEvaluator.EvaluateAsync(candidateForEvaluation, budgetCancellation.Token);
+            var baseFitness = await _fitnessEvaluator.EvaluateAsync(candidateForEvaluation, budgetCancellation.Token);
             var fitness = roundsForFitness.Length == 0
                 ? baseFitness
                 : _adversarialFitnessFeedbackBridge.Apply(baseFitness, roundsForFitness);

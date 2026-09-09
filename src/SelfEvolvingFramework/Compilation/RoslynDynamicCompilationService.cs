@@ -1,14 +1,18 @@
 using System.Reflection;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
+using SelfEvolvingFramework.Core;
 
 namespace SelfEvolvingFramework.Compilation;
 
 public sealed class RoslynDynamicCompilationService : IDynamicCompilationService
 {
-    public CompilationResult Compile(string sourceCode)
+    public CompilationResult Compile(CandidateProgram candidate)
     {
-        var syntaxTree = CSharpSyntaxTree.ParseText(sourceCode);
+        if (candidate.Format != CandidateFormat.CSharp)
+            return CompilationResult.Failed(new[] { "Compilation only supported for C# format" });
+
+        var syntaxTree = CSharpSyntaxTree.ParseText(candidate.SourceMaterial);
         var references = GetDefaultReferences();
         var compilation = CSharpCompilation.Create(
             assemblyName: $"Dynamic_{Guid.NewGuid():N}",

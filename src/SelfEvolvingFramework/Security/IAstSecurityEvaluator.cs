@@ -1,6 +1,9 @@
+using SelfEvolvingFramework.Core;
+
 namespace SelfEvolvingFramework.Security;
 
 public interface IAstSecurityEvaluator
 {
-    SecurityEvaluationResult Evaluate(string sourceCode);
+    CandidateFormat Format { get; }
+    SecurityEvaluationResult Evaluate(string sourceMaterial);
 }

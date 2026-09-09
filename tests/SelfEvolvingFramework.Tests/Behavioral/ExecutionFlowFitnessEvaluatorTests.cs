@@ -11,7 +11,7 @@ public sealed class ExecutionFlowFitnessEvaluatorTests
         var evaluator = new ExecutionFlowFitnessEvaluator(
             new StubBehavioralEvaluator(new PostCompilationBehavioralEvaluationResult(true, [])));
 
-        var fitness = await evaluator.EvaluateAsync(new CandidateProgram("public static class Runner{}"));
+        var fitness = await evaluator.EvaluateAsync(CandidateProgram.FromCSharp("public static class Runner{}"));
 
         Assert.Equal(0, fitness);
     }
@@ -37,7 +37,7 @@ public sealed class ExecutionFlowFitnessEvaluatorTests
             ])),
             options);
 
-        var fitness = await evaluator.EvaluateAsync(new CandidateProgram("public static class Runner{}"));
+        var fitness = await evaluator.EvaluateAsync(CandidateProgram.FromCSharp("public static class Runner{}"));
 
         Assert.Equal(-(100 + 10 + 1000 + 5), fitness);
     }
@@ -49,7 +49,7 @@ public sealed class ExecutionFlowFitnessEvaluatorTests
             new StubBehavioralEvaluator(new PostCompilationBehavioralEvaluationResult(false, [])),
             new ExecutionFlowFitnessScoringOptions(UnknownFailurePenalty: 12));
 
-        var fitness = await evaluator.EvaluateAsync(new CandidateProgram("public static class Runner{}"));
+        var fitness = await evaluator.EvaluateAsync(CandidateProgram.FromCSharp("public static class Runner{}"));
 
         Assert.Equal(-12, fitness);
     }
