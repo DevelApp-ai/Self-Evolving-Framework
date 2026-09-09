@@ -17,7 +17,7 @@ public sealed class MalformedAdjudicationIntegrationTests
             new AdversarialWorkflowOptions(MaxRounds: 1));
 
         var reviewResult = await reviewOrchestrator.RunAsync(
-            new CandidateProgram("public static class Runner { public static int Execute() => 1; }"),
+            CandidateProgram.FromCSharp("public static class Runner { public static int Execute() => 1; }"),
             BuildTeams());
         var evolutionOrchestrator = new EvolutionOrchestrator(
             new RoslynAstSecurityEvaluator(),
@@ -26,7 +26,7 @@ public sealed class MalformedAdjudicationIntegrationTests
             new ConstantMutator("public static class Runner { public static int Execute() => 1; }"));
 
         var result = await evolutionOrchestrator.EvolveOnceAsync(
-            new CandidateProgram("public static class Seed { }"),
+            CandidateProgram.FromCSharp("public static class Seed { }"),
             adversarialRounds: reviewResult.Rounds);
 
         Assert.True(reviewResult.Converged);
@@ -45,7 +45,7 @@ public sealed class MalformedAdjudicationIntegrationTests
             new AdversarialWorkflowOptions(MaxRounds: 1));
 
         var reviewResult = await reviewOrchestrator.RunAsync(
-            new CandidateProgram("public static class Runner { public static int Execute() => 1; }"),
+            CandidateProgram.FromCSharp("public static class Runner { public static int Execute() => 1; }"),
             BuildTeams());
         var evolutionOrchestrator = new EvolutionOrchestrator(
             new RoslynAstSecurityEvaluator(),
@@ -54,14 +54,14 @@ public sealed class MalformedAdjudicationIntegrationTests
             new ConstantMutator("public static class Seed { }"));
 
         var result = await evolutionOrchestrator.EvolveOnceAsync(
-            new CandidateProgram("public static class Seed { }"),
+            CandidateProgram.FromCSharp("public static class Seed { }"),
             adversarialRounds: reviewResult.Rounds);
 
         Assert.False(reviewResult.Converged);
         Assert.Single(reviewResult.Rounds);
         Assert.True(result.IsValid);
         Assert.Equal(10.5, result.Fitness);
-        Assert.Contains("=> 2;", reviewResult.FinalCandidate.SourceCode, StringComparison.Ordinal);
+        Assert.Contains("=> 2;", reviewResult.FinalCandidate.SourceMaterial, StringComparison.Ordinal);
     }
 
     private static IReadOnlyList<AdversarialTeamDefinition> BuildTeams()
@@ -97,7 +97,7 @@ public sealed class MalformedAdjudicationIntegrationTests
             AdversarialRoleContext context,
             IReadOnlyList<FlawDecision> acceptedFlaws,
             CancellationToken cancellationToken = default)
-            => Task.FromResult(new CandidateProgram("public static class Runner { public static int Execute() => 2; }", context.CurrentCandidate.Id));
+            => Task.FromResult(CandidateProgram.FromCSharp("public static class Runner { public static int Execute() => 2; }", context.CurrentCandidate.Id));
     }
 
     private sealed class UnknownFlawAdjudicationEngine : IFlawAdjudicationEngine
@@ -127,7 +127,7 @@ public sealed class MalformedAdjudicationIntegrationTests
     private sealed class ConstantMutator(string sourceCode) : IEvolutionMutator
     {
         public Task<CandidateProgram> MutateAsync(CandidateProgram candidate, IReadOnlyList<string> feedback, CancellationToken cancellationToken = default)
-            => Task.FromResult(new CandidateProgram(sourceCode, candidate.Id));
+            => Task.FromResult(CandidateProgram.FromCSharp(sourceCode, candidate.Id));
     }
 
     private sealed class ConstantFitnessEvaluator(double fitness) : IFitnessEvaluator

@@ -30,7 +30,7 @@ public sealed class AdversarialEvolutionIntegrationTests
             new AdversarialWorkflowOptions(MaxRounds: 3));
 
         var reviewResult = await reviewOrchestrator.RunAsync(
-            new CandidateProgram("public static class Runner { public static int Execute() => 1; }"),
+            CandidateProgram.FromCSharp("public static class Runner { public static int Execute() => 1; }"),
             teams);
         var evolutionOrchestrator = new EvolutionOrchestrator(
             new RoslynAstSecurityEvaluator(),
@@ -39,7 +39,7 @@ public sealed class AdversarialEvolutionIntegrationTests
             new ConstantMutator("public static class Runner { public static int Execute() => 1; }"));
 
         var result = await evolutionOrchestrator.EvolveOnceAsync(
-            new CandidateProgram("public static class Seed{}"),
+            CandidateProgram.FromCSharp("public static class Seed{}"),
             adversarialRounds: reviewResult.Rounds);
 
         Assert.True(reviewResult.Converged);
@@ -53,7 +53,7 @@ public sealed class AdversarialEvolutionIntegrationTests
         private int _reviewCalls;
 
         public Task<CandidateProgram> ProposeAsync(AdversarialRoleContext context, CancellationToken cancellationToken = default)
-            => Task.FromResult(new CandidateProgram(context.CurrentCandidate.SourceCode, context.CurrentCandidate.Id));
+            => Task.FromResult(CandidateProgram.FromCSharp(context.CurrentCandidate.SourceMaterial, context.CurrentCandidate.Id));
 
         public Task<IReadOnlyList<FlawReport>> ReviewAsync(AdversarialRoleContext context, CancellationToken cancellationToken = default)
         {
@@ -102,7 +102,7 @@ public sealed class AdversarialEvolutionIntegrationTests
     private sealed class ConstantMutator(string sourceCode) : IEvolutionMutator
     {
         public Task<CandidateProgram> MutateAsync(CandidateProgram candidate, IReadOnlyList<string> feedback, CancellationToken cancellationToken = default)
-            => Task.FromResult(new CandidateProgram(sourceCode, candidate.Id));
+            => Task.FromResult(CandidateProgram.FromCSharp(sourceCode, candidate.Id));
     }
 
     private sealed class ConstantFitnessEvaluator(double fitness) : IFitnessEvaluator

@@ -17,7 +17,7 @@ public sealed class ExecutionFlowFitnessIntegrationTests
             flowRunner);
         var fitnessEvaluator = new ExecutionFlowFitnessEvaluator(behavioralEvaluator);
 
-        var fitness = await fitnessEvaluator.EvaluateAsync(new CandidateProgram(
+        var fitness = await fitnessEvaluator.EvaluateAsync(CandidateProgram.FromCSharp(
             "public static class Runner { public static string Execute() => \"https://localhost:5001\"; }"));
 
         Assert.Equal(0, fitness);
@@ -38,7 +38,7 @@ public sealed class ExecutionFlowFitnessIntegrationTests
             flowRunner);
         var fitnessEvaluator = new ExecutionFlowFitnessEvaluator(behavioralEvaluator);
 
-        var fitness = await fitnessEvaluator.EvaluateAsync(new CandidateProgram(
+        var fitness = await fitnessEvaluator.EvaluateAsync(CandidateProgram.FromCSharp(
             "public static class Runner { public static string Execute() => \"https://localhost:5001\"; }"));
 
         Assert.Equal(-(1000 + 100 + 10), fitness);
