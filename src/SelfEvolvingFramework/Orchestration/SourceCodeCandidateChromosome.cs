@@ -37,6 +37,8 @@ internal sealed class SourceCodeCandidateChromosome : ChromosomeBase
     public void SetCandidate(CandidateProgram candidateProgram)
     {
         Candidate = candidateProgram;
-        ReplaceGene(0, new Gene(candidateProgram.SourceMaterial));
+        var gene = new Gene(candidateProgram.SourceMaterial);
+        ReplaceGene(0, gene);
+        ReplaceGene(1, gene);
     }
 }

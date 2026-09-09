@@ -86,7 +86,7 @@ public sealed class XStateFitnessEvaluator : IFitnessEvaluator
         var root = jsonDoc.RootElement;
         if (!root.TryGetProperty("states", out var states) ||
             states.ValueKind != JsonValueKind.Object)
-            return 0.5;
+            return 0;
 
         var totalStates = 0;
         var reachableStates = new HashSet<string>();
@@ -155,7 +155,7 @@ public sealed class XStateFitnessEvaluator : IFitnessEvaluator
         var root = jsonDoc.RootElement;
         if (!root.TryGetProperty("states", out var states) ||
             states.ValueKind != JsonValueKind.Object)
-            return 0.5;
+            return 0;
 
         var totalTransitions = 0;
         var validTransitions = 0;
