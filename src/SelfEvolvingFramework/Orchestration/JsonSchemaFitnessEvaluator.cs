@@ -61,6 +61,9 @@ public sealed class JsonSchemaFitnessEvaluator : IFitnessEvaluator
     private static bool HasValidTypes(JsonDocument jsonDoc)
     {
         var root = jsonDoc.RootElement;
+        if (!root.TryGetProperty("$schema", out _))
+            return false;
+
         if (root.TryGetProperty("type", out var typeProp))
         {
             var typeValue = typeProp.GetString();
