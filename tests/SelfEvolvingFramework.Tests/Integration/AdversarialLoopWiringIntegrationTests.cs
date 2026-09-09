@@ -29,7 +29,7 @@ public sealed class AdversarialLoopWiringIntegrationTests
             new SequenceAdjudicationEngine(),
             new AdversarialWorkflowOptions(MaxRounds: 2));
         var reviewResult = await reviewOrchestrator.RunAsync(
-            new CandidateProgram("public static class Runner { public static int Execute() => 2; }"),
+            CandidateProgram.FromCSharp("public static class Runner { public static int Execute() => 2; }"),
             teams);
 
         var mutator = new RecordingMutator();
@@ -41,7 +41,7 @@ public sealed class AdversarialLoopWiringIntegrationTests
             mutator);
 
         var result = await evolutionOrchestrator.EvolveOnceAsync(
-            new CandidateProgram("public static class Runner { public static int Execute() => 1; }"),
+            CandidateProgram.FromCSharp("public static class Runner { public static int Execute() => 1; }"),
             feedback: ["prefer return value 2"],
             adversarialRounds: reviewResult.Rounds);
 
@@ -51,7 +51,7 @@ public sealed class AdversarialLoopWiringIntegrationTests
         Assert.Equal(100.5, result.Fitness);
         Assert.Equal(["prefer return value 2"], mutator.LastFeedback);
         Assert.NotNull(fitness.LastCandidate);
-        Assert.Contains("=> 3;", fitness.LastCandidate!.SourceCode, StringComparison.Ordinal);
+        Assert.Contains("=> 3;", fitness.LastCandidate!.SourceMaterial, StringComparison.Ordinal);
         Assert.True(sandboxExecutor.Calls > 0);
     }
 
@@ -62,7 +62,7 @@ public sealed class AdversarialLoopWiringIntegrationTests
         public Task<CandidateProgram> MutateAsync(CandidateProgram candidate, IReadOnlyList<string> feedback, CancellationToken cancellationToken = default)
         {
             LastFeedback = feedback.ToArray();
-            return Task.FromResult(new CandidateProgram("public static class Runner { public static int Execute() => 2; }", candidate.Id));
+            return Task.FromResult(CandidateProgram.FromCSharp("public static class Runner { public static int Execute() => 2; }", candidate.Id));
         }
     }
 
@@ -110,7 +110,7 @@ public sealed class AdversarialLoopWiringIntegrationTests
             AdversarialRoleContext context,
             IReadOnlyList<FlawDecision> acceptedFlaws,
             CancellationToken cancellationToken = default)
-            => Task.FromResult(new CandidateProgram("public static class Runner { public static int Execute() => 3; }", context.CurrentCandidate.Id));
+            => Task.FromResult(CandidateProgram.FromCSharp("public static class Runner { public static int Execute() => 3; }", context.CurrentCandidate.Id));
     }
 
     private sealed class SequenceAdjudicationEngine : IFlawAdjudicationEngine

@@ -12,13 +12,13 @@ public sealed class SemanticKernelEvolutionCrossoverTests
     {
         var chat = new CapturingChatCompletionService("public static class Runner { public static int Execute() => 3; }");
         var crossover = new SemanticKernelEvolutionCrossover(chat, "Optimize for throughput and correctness.");
-        var parentA = new CandidateProgram("public static class Runner { public static int Execute() => 1; }");
-        var parentB = new CandidateProgram("public static class Runner { public static int Execute() => 2; }");
+        var parentA = CandidateProgram.FromCSharp("public static class Runner { public static int Execute() => 1; }");
+        var parentB = CandidateProgram.FromCSharp("public static class Runner { public static int Execute() => 2; }");
 
         var offspring = await crossover.CrossoverAsync(parentA, parentB);
 
         Assert.Equal(parentA.Id, offspring.ParentId);
-        Assert.Equal("public static class Runner { public static int Execute() => 3; }", offspring.SourceCode);
+        Assert.Equal("public static class Runner { public static int Execute() => 3; }", offspring.SourceMaterial);
 
         var capturedHistory = Assert.Single(chat.CapturedHistories);
         Assert.Equal(2, capturedHistory.Count);
@@ -27,9 +27,9 @@ public sealed class SemanticKernelEvolutionCrossoverTests
         Assert.Contains("Objective:", capturedHistory[1].Content, StringComparison.Ordinal);
         Assert.Contains("Optimize for throughput and correctness.", capturedHistory[1].Content, StringComparison.Ordinal);
         Assert.Contains("Parent A C# source:", capturedHistory[1].Content, StringComparison.Ordinal);
-        Assert.Contains(parentA.SourceCode, capturedHistory[1].Content, StringComparison.Ordinal);
+        Assert.Contains(parentA.SourceMaterial, capturedHistory[1].Content, StringComparison.Ordinal);
         Assert.Contains("Parent B C# source:", capturedHistory[1].Content, StringComparison.Ordinal);
-        Assert.Contains(parentB.SourceCode, capturedHistory[1].Content, StringComparison.Ordinal);
+        Assert.Contains(parentB.SourceMaterial, capturedHistory[1].Content, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -37,12 +37,12 @@ public sealed class SemanticKernelEvolutionCrossoverTests
     {
         var chat = new CapturingChatCompletionService("```csharp\npublic static class Runner { public static int Execute() => 5; }\n```");
         var crossover = new SemanticKernelEvolutionCrossover(chat, "Blend both implementations.");
-        var parentA = new CandidateProgram("public static class Runner { public static int Execute() => 1; }");
-        var parentB = new CandidateProgram("public static class Runner { public static int Execute() => 2; }");
+        var parentA = CandidateProgram.FromCSharp("public static class Runner { public static int Execute() => 1; }");
+        var parentB = CandidateProgram.FromCSharp("public static class Runner { public static int Execute() => 2; }");
 
         var offspring = await crossover.CrossoverAsync(parentA, parentB);
 
-        Assert.Equal("public static class Runner { public static int Execute() => 5; }", offspring.SourceCode);
+        Assert.Equal("public static class Runner { public static int Execute() => 5; }", offspring.SourceMaterial);
     }
 
     [Fact]
@@ -51,12 +51,12 @@ public sealed class SemanticKernelEvolutionCrossoverTests
         var chat = new CapturingChatCompletionService(
             "Result:\n```csharp\npublic static class Runner { public static int Execute() => 6; }\n```\nDone.");
         var crossover = new SemanticKernelEvolutionCrossover(chat, "Blend both implementations.");
-        var parentA = new CandidateProgram("public static class Runner { public static int Execute() => 1; }");
-        var parentB = new CandidateProgram("public static class Runner { public static int Execute() => 2; }");
+        var parentA = CandidateProgram.FromCSharp("public static class Runner { public static int Execute() => 1; }");
+        var parentB = CandidateProgram.FromCSharp("public static class Runner { public static int Execute() => 2; }");
 
         var offspring = await crossover.CrossoverAsync(parentA, parentB);
 
-        Assert.Equal("public static class Runner { public static int Execute() => 6; }", offspring.SourceCode);
+        Assert.Equal("public static class Runner { public static int Execute() => 6; }", offspring.SourceMaterial);
     }
 
     [Fact]
@@ -64,8 +64,8 @@ public sealed class SemanticKernelEvolutionCrossoverTests
     {
         var chat = new CapturingChatCompletionService("   ");
         var crossover = new SemanticKernelEvolutionCrossover(chat, "Blend both implementations.");
-        var parentA = new CandidateProgram("public static class Runner { public static int Execute() => 1; }");
-        var parentB = new CandidateProgram("public static class Runner { public static int Execute() => 2; }");
+        var parentA = CandidateProgram.FromCSharp("public static class Runner { public static int Execute() => 1; }");
+        var parentB = CandidateProgram.FromCSharp("public static class Runner { public static int Execute() => 2; }");
 
         var offspring = await crossover.CrossoverAsync(parentA, parentB);
 

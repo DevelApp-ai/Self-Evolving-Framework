@@ -25,7 +25,7 @@ public sealed class PlaywrightPostCompilationBehavioralEvaluator(
         ArgumentNullException.ThrowIfNull(candidate);
         ValidateOptions(_options);
 
-        var compilation = _compilationService.Compile(candidate.SourceCode);
+        var compilation = _compilationService.Compile(candidate);
         if (!compilation.Success)
         {
             return PostCompilationBehavioralEvaluationResult.Failed(compilation.Diagnostics.Select(diagnostic => $"compiler: {diagnostic}"));
