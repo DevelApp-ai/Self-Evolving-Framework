@@ -32,11 +32,11 @@ public sealed class AdversarialEvolutionIntegrationTests
         var reviewResult = await reviewOrchestrator.RunAsync(
             CandidateProgram.FromCSharp("public static class Runner { public static int Execute() => 1; }"),
             teams);
-        var evolutionOrchestrator = new EvolutionOrchestrator(
-            new RoslynAstSecurityEvaluator(),
-            new RoslynDynamicCompilationService(),
-            new ConstantFitnessEvaluator(10),
-            new ConstantMutator("public static class Runner { public static int Execute() => 1; }"));
+        var evolutionOrchestrator = new EvolutionOrchestrator();
+        evolutionOrchestrator.AddMutator(new ConstantMutator("public static class Runner { public static int Execute() => 1; }"));
+        evolutionOrchestrator.AddSecurityEvaluator(new RoslynAstSecurityEvaluator());
+        evolutionOrchestrator.SetCompilationService(new RoslynDynamicCompilationService());
+        evolutionOrchestrator.SetFitnessEvaluator(new ConstantFitnessEvaluator(10));
 
         var result = await evolutionOrchestrator.EvolveOnceAsync(
             CandidateProgram.FromCSharp("public static class Seed{}"),

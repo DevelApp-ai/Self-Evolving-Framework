@@ -28,7 +28,7 @@ public sealed class JsonEvolutionMutatorTests
     {
         var mockChatService = new Mock<IChatCompletionService>();
         var responseContent = "{'mutated': 2}";
-        var messageContent = new ChatMessageContent(ChatRole.Assistant, responseContent);
+        var messageContent = new ChatMessageContent(AuthorRole.Assistant, responseContent);
         mockChatService.Setup(x => x.GetChatMessageContentsAsync(It.IsAny<ChatHistory>(), It.IsAny<PromptExecutionSettings>(), null, It.IsAny<CancellationToken>()))
             .ReturnsAsync(new List<ChatMessageContent> { messageContent });
 
@@ -47,7 +47,7 @@ public sealed class JsonEvolutionMutatorTests
     {
         var mockChatService = new Mock<IChatCompletionService>();
         var responseContent = "Here is the mutated JSON:\n```json\n{'mutated': 2}\n```";
-        var messageContent = new ChatMessageContent(ChatRole.Assistant, responseContent);
+        var messageContent = new ChatMessageContent(AuthorRole.Assistant, responseContent);
         mockChatService.Setup(x => x.GetChatMessageContentsAsync(It.IsAny<ChatHistory>(), It.IsAny<PromptExecutionSettings>(), null, It.IsAny<CancellationToken>()))
             .ReturnsAsync(new List<ChatMessageContent> { messageContent });
 
@@ -65,7 +65,7 @@ public sealed class JsonEvolutionMutatorTests
     {
         var mockChatService = new Mock<IChatCompletionService>();
         var responseContent = "```json\n[1, 2, 3]\n```";
-        var messageContent = new ChatMessageContent(ChatRole.Assistant, responseContent);
+        var messageContent = new ChatMessageContent(AuthorRole.Assistant, responseContent);
         mockChatService.Setup(x => x.GetChatMessageContentsAsync(It.IsAny<ChatHistory>(), It.IsAny<PromptExecutionSettings>(), null, It.IsAny<CancellationToken>()))
             .ReturnsAsync(new List<ChatMessageContent> { messageContent });
 
@@ -170,7 +170,7 @@ public sealed class JsonEvolutionMutatorTests
     {
         var mockChatService = new Mock<IChatCompletionService>();
         var responseContent = "{'mutated': 2}";
-        var messageContent = new ChatMessageContent(ChatRole.Assistant, responseContent);
+        var messageContent = new ChatMessageContent(AuthorRole.Assistant, responseContent);
         mockChatService.Setup(x => x.GetChatMessageContentsAsync(It.IsAny<ChatHistory>(), It.IsAny<PromptExecutionSettings>(), null, It.IsAny<CancellationToken>()))
             .ReturnsAsync(new List<ChatMessageContent> { messageContent });
 

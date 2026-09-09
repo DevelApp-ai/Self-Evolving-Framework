@@ -34,11 +34,11 @@ public sealed class AdversarialLoopWiringIntegrationTests
 
         var mutator = new RecordingMutator();
         var fitness = new RecordingFitnessEvaluator();
-        var evolutionOrchestrator = new EvolutionOrchestrator(
-            new RoslynAstSecurityEvaluator(),
-            new RoslynDynamicCompilationService(),
-            fitness,
-            mutator);
+        var evolutionOrchestrator = new EvolutionOrchestrator();
+        evolutionOrchestrator.AddMutator(mutator);
+        evolutionOrchestrator.AddSecurityEvaluator(new RoslynAstSecurityEvaluator());
+        evolutionOrchestrator.SetCompilationService(new RoslynDynamicCompilationService());
+        evolutionOrchestrator.SetFitnessEvaluator(fitness);
 
         var result = await evolutionOrchestrator.EvolveOnceAsync(
             CandidateProgram.FromCSharp("public static class Runner { public static int Execute() => 1; }"),

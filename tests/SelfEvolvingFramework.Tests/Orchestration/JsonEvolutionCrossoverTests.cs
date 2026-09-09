@@ -29,7 +29,7 @@ public sealed class JsonEvolutionCrossoverTests
     {
         var mockChatService = new Mock<IChatCompletionService>();
         var responseContent = "{'combined': 3}";
-        var messageContent = new ChatMessageContent(ChatRole.Assistant, responseContent);
+        var messageContent = new ChatMessageContent(AuthorRole.Assistant, responseContent);
         mockChatService.Setup(x => x.GetChatMessageContentsAsync(It.IsAny<ChatHistory>(), null, null, It.IsAny<CancellationToken>()))
             .ReturnsAsync(new List<ChatMessageContent> { messageContent });
 
@@ -49,7 +49,7 @@ public sealed class JsonEvolutionCrossoverTests
     {
         var mockChatService = new Mock<IChatCompletionService>();
         var responseContent = "Here is the combined JSON:\n```json\n{'combined': 3}\n```";
-        var messageContent = new ChatMessageContent(ChatRole.Assistant, responseContent);
+        var messageContent = new ChatMessageContent(AuthorRole.Assistant, responseContent);
         mockChatService.Setup(x => x.GetChatMessageContentsAsync(It.IsAny<ChatHistory>(), null, null, It.IsAny<CancellationToken>()))
             .ReturnsAsync(new List<ChatMessageContent> { messageContent });
 
@@ -68,7 +68,7 @@ public sealed class JsonEvolutionCrossoverTests
     {
         var mockChatService = new Mock<IChatCompletionService>();
         var responseContent = "```json\n[1, 2, 3]\n```";
-        var messageContent = new ChatMessageContent(ChatRole.Assistant, responseContent);
+        var messageContent = new ChatMessageContent(AuthorRole.Assistant, responseContent);
         mockChatService.Setup(x => x.GetChatMessageContentsAsync(It.IsAny<ChatHistory>(), null, null, It.IsAny<CancellationToken>()))
             .ReturnsAsync(new List<ChatMessageContent> { messageContent });
 
