@@ -69,8 +69,8 @@ public sealed class AdversarialFitnessFeedbackBridgeTests
 
         return new AdversarialRoundResult(
             assignment,
-            new CandidateProgram(before),
-            new CandidateProgram(after),
+            CandidateProgram.FromCSharp(before),
+            CandidateProgram.FromCSharp(after),
             reports,
             [],
             decisions);

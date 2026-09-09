@@ -15,7 +15,7 @@ public sealed class PlaywrightPostCompilationBehavioralEvaluatorTests
             new StubAssemblyExecutor(),
             new StubFlowRunner());
 
-        var result = await evaluator.EvaluateAsync(new CandidateProgram("public static class Runner{}"));
+        var result = await evaluator.EvaluateAsync(CandidateProgram.FromCSharp("public static class Runner{}"));
 
         Assert.False(result.Passed);
         Assert.Contains("compiler: CS1002", result.Diagnostics);
@@ -29,7 +29,7 @@ public sealed class PlaywrightPostCompilationBehavioralEvaluatorTests
             new StubAssemblyExecutor(ExecutionResult.Failed(["Execution exceeded timeout"])),
             new StubFlowRunner());
 
-        var result = await evaluator.EvaluateAsync(new CandidateProgram("public static class Runner{}"));
+        var result = await evaluator.EvaluateAsync(CandidateProgram.FromCSharp("public static class Runner{}"));
 
         Assert.False(result.Passed);
         Assert.Contains("runtime: Execution exceeded timeout", result.Diagnostics);
@@ -43,7 +43,7 @@ public sealed class PlaywrightPostCompilationBehavioralEvaluatorTests
             new StubAssemblyExecutor(new ExecutionResult(true, "not-a-url", [])),
             new StubFlowRunner());
 
-        var result = await evaluator.EvaluateAsync(new CandidateProgram("public static class Runner{}"));
+        var result = await evaluator.EvaluateAsync(CandidateProgram.FromCSharp("public static class Runner{}"));
 
         Assert.False(result.Passed);
         Assert.Contains("runtime: Entry point did not return a valid absolute endpoint URL.", result.Diagnostics);
@@ -58,7 +58,7 @@ public sealed class PlaywrightPostCompilationBehavioralEvaluatorTests
             new StubAssemblyExecutor(new ExecutionResult(true, "https://localhost:5001", [])),
             flowRunner);
 
-        var result = await evaluator.EvaluateAsync(new CandidateProgram("public static class Runner{}"));
+        var result = await evaluator.EvaluateAsync(CandidateProgram.FromCSharp("public static class Runner{}"));
 
         Assert.False(result.Passed);
         Assert.Equal("https://localhost:5001/", flowRunner.LastEndpoint?.ToString());

@@ -122,7 +122,7 @@ public sealed class DefaultFlawAdjudicationEngineTests
         return new AdversarialRoleContext(
             1,
             assignment,
-            new CandidateProgram("public static class Seed { }"),
+            CandidateProgram.FromCSharp("public static class Seed { }"),
             priorRounds ?? []);
     }
 
@@ -147,8 +147,8 @@ public sealed class DefaultFlawAdjudicationEngineTests
 
         return new AdversarialRoundResult(
             assignment,
-            new CandidateProgram(before),
-            new CandidateProgram(after),
+            CandidateProgram.FromCSharp(before),
+            CandidateProgram.FromCSharp(after),
             reports,
             challenges ?? [],
             decisions);

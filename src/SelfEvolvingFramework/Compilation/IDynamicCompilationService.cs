@@ -1,6 +1,8 @@
+using SelfEvolvingFramework.Core;
+
 namespace SelfEvolvingFramework.Compilation;
 
 public interface IDynamicCompilationService
 {
-    CompilationResult Compile(string sourceCode);
+    CompilationResult Compile(CandidateProgram candidate);
 }

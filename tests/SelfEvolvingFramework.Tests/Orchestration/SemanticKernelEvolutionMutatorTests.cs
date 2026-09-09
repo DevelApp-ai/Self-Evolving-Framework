@@ -13,7 +13,7 @@ public sealed class SemanticKernelEvolutionMutatorTests
     {
         var chat = new CapturingChatCompletionService("public static class Runner { public static int Execute() => 2; }");
         var mutator = new SemanticKernelEvolutionMutator(chat, "Optimize runtime performance.");
-        var seed = new CandidateProgram("public static class Runner { public static int Execute() => 1; }");
+        var seed = CandidateProgram.FromCSharp("public static class Runner { public static int Execute() => 1; }");
 
         var mutated = await mutator.MutateAsync(seed,
         [
@@ -24,7 +24,7 @@ public sealed class SemanticKernelEvolutionMutatorTests
         ]);
 
         Assert.Equal(seed.Id, mutated.ParentId);
-        Assert.Equal("public static class Runner { public static int Execute() => 2; }", mutated.SourceCode);
+        Assert.Equal("public static class Runner { public static int Execute() => 2; }", mutated.SourceMaterial);
 
         var capturedHistory = Assert.Single(chat.CapturedHistories);
         Assert.Equal(2, capturedHistory.Count);
@@ -58,11 +58,11 @@ public sealed class SemanticKernelEvolutionMutatorTests
     {
         var chat = new CapturingChatCompletionService("```csharp\npublic static class Runner { public static int Execute() => 3; }\n```");
         var mutator = new SemanticKernelEvolutionMutator(chat, "Improve implementation.");
-        var seed = new CandidateProgram("public static class Runner { public static int Execute() => 1; }");
+        var seed = CandidateProgram.FromCSharp("public static class Runner { public static int Execute() => 1; }");
 
         var mutated = await mutator.MutateAsync(seed, []);
 
-        Assert.Equal("public static class Runner { public static int Execute() => 3; }", mutated.SourceCode);
+        Assert.Equal("public static class Runner { public static int Execute() => 3; }", mutated.SourceMaterial);
     }
 
     [Fact]
@@ -71,11 +71,11 @@ public sealed class SemanticKernelEvolutionMutatorTests
         var chat = new CapturingChatCompletionService(
             "Here is the updated code:\n```csharp\npublic static class Runner { public static int Execute() => 4; }\n```\nThis should help.");
         var mutator = new SemanticKernelEvolutionMutator(chat, "Improve implementation.");
-        var seed = new CandidateProgram("public static class Runner { public static int Execute() => 1; }");
+        var seed = CandidateProgram.FromCSharp("public static class Runner { public static int Execute() => 1; }");
 
         var mutated = await mutator.MutateAsync(seed, []);
 
-        Assert.Equal("public static class Runner { public static int Execute() => 4; }", mutated.SourceCode);
+        Assert.Equal("public static class Runner { public static int Execute() => 4; }", mutated.SourceMaterial);
     }
 
     [Fact]
@@ -83,7 +83,7 @@ public sealed class SemanticKernelEvolutionMutatorTests
     {
         var chat = new CapturingChatCompletionService("   ");
         var mutator = new SemanticKernelEvolutionMutator(chat, "Improve implementation.");
-        var seed = new CandidateProgram("public static class Runner { public static int Execute() => 1; }");
+        var seed = CandidateProgram.FromCSharp("public static class Runner { public static int Execute() => 1; }");
 
         var mutated = await mutator.MutateAsync(seed, []);
 
@@ -95,7 +95,7 @@ public sealed class SemanticKernelEvolutionMutatorTests
     {
         var chat = new CapturingChatCompletionService("public static class Runner { public static int Execute() => 5; }");
         var mutator = new SemanticKernelEvolutionMutator(chat, "Improve implementation.");
-        var seed = new CandidateProgram("public static class Runner { public static int Execute() => 1; }");
+        var seed = CandidateProgram.FromCSharp("public static class Runner { public static int Execute() => 1; }");
 
         using var scope = ExecutionBudgetContext.BeginScope(250);
         _ = await mutator.MutateAsync(seed, []);

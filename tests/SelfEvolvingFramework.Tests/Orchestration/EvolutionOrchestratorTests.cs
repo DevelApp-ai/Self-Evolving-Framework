@@ -10,13 +10,13 @@ public sealed class EvolutionOrchestratorTests
     [Fact]
     public async Task EvolveOnceAsync_Returns_Invalid_For_Security_Violation()
     {
-        var orchestrator = new EvolutionOrchestrator(
-            new RoslynAstSecurityEvaluator(),
-            new RoslynDynamicCompilationService(),
-            new ConstantFitnessEvaluator(1),
-            new ConstantMutator("using System.IO; public static class Runner { public static int Execute() => 1; }"));
+        var orchestrator = new EvolutionOrchestrator();
+        orchestrator.AddMutator(new ConstantMutator("using System.IO; public static class Runner { public static int Execute() => 1; }"));
+        orchestrator.AddSecurityEvaluator(new RoslynAstSecurityEvaluator());
+        orchestrator.SetCompilationService(new RoslynDynamicCompilationService());
+        orchestrator.SetFitnessEvaluator(new ConstantFitnessEvaluator(1));
 
-        var result = await orchestrator.EvolveOnceAsync(new CandidateProgram("public static class Seed{}"));
+        var result = await orchestrator.EvolveOnceAsync(CandidateProgram.FromCSharp("public static class Seed{}"));
 
         Assert.False(result.IsValid);
         Assert.Equal(double.NegativeInfinity, result.Fitness);
@@ -27,13 +27,13 @@ public sealed class EvolutionOrchestratorTests
     public async Task EvolveOnceAsync_Returns_Fitness_For_Valid_Candidate()
     {
         var fitnessEvaluator = new ConstantFitnessEvaluator(9.5);
-        var orchestrator = new EvolutionOrchestrator(
-            new RoslynAstSecurityEvaluator(),
-            new RoslynDynamicCompilationService(),
-            fitnessEvaluator,
-            new ConstantMutator("public static class Runner { public static int Execute() => 1; }"));
+        var orchestrator = new EvolutionOrchestrator();
+        orchestrator.AddMutator(new ConstantMutator("public static class Runner { public static int Execute() => 1; }"));
+        orchestrator.AddSecurityEvaluator(new RoslynAstSecurityEvaluator());
+        orchestrator.SetCompilationService(new RoslynDynamicCompilationService());
+        orchestrator.SetFitnessEvaluator(fitnessEvaluator);
 
-        var result = await orchestrator.EvolveOnceAsync(new CandidateProgram("public static class Seed{}"));
+        var result = await orchestrator.EvolveOnceAsync(CandidateProgram.FromCSharp("public static class Seed{}"));
 
         Assert.True(result.IsValid);
         Assert.Equal(9.5, result.Fitness);
@@ -49,11 +49,11 @@ public sealed class EvolutionOrchestratorTests
     public async Task EvolveOnceAsync_Applies_Adversarial_Fitness_Adjustment_When_Rounds_Provided()
     {
         var fitnessEvaluator = new ConstantFitnessEvaluator(10);
-        var orchestrator = new EvolutionOrchestrator(
-            new RoslynAstSecurityEvaluator(),
-            new RoslynDynamicCompilationService(),
-            fitnessEvaluator,
-            new ConstantMutator("public static class Runner { public static int Execute() => 1; }"));
+        var orchestrator = new EvolutionOrchestrator();
+        orchestrator.AddMutator(new ConstantMutator("public static class Runner { public static int Execute() => 1; }"));
+        orchestrator.AddSecurityEvaluator(new RoslynAstSecurityEvaluator());
+        orchestrator.SetCompilationService(new RoslynDynamicCompilationService());
+        orchestrator.SetFitnessEvaluator(fitnessEvaluator);
 
         var rounds = new[]
         {
@@ -65,7 +65,7 @@ public sealed class EvolutionOrchestratorTests
         };
 
         var result = await orchestrator.EvolveOnceAsync(
-            new CandidateProgram("public static class Seed{}"),
+            CandidateProgram.FromCSharp("public static class Seed{}"),
             adversarialRounds: rounds);
 
         Assert.True(result.IsValid);
@@ -80,11 +80,11 @@ public sealed class EvolutionOrchestratorTests
         const string finalizedSource = "public static class Runner { public static int Execute() => 2; }";
 
         var fitnessEvaluator = new SourceLengthFitnessEvaluator();
-        var orchestrator = new EvolutionOrchestrator(
-            new RoslynAstSecurityEvaluator(),
-            new RoslynDynamicCompilationService(),
-            fitnessEvaluator,
-            new ConstantMutator(mutatedSource));
+        var orchestrator = new EvolutionOrchestrator();
+        orchestrator.AddMutator(new ConstantMutator(mutatedSource));
+        orchestrator.AddSecurityEvaluator(new RoslynAstSecurityEvaluator());
+        orchestrator.SetCompilationService(new RoslynDynamicCompilationService());
+        orchestrator.SetFitnessEvaluator(fitnessEvaluator);
 
         var rounds = new[]
         {
@@ -96,11 +96,11 @@ public sealed class EvolutionOrchestratorTests
         };
 
         var result = await orchestrator.EvolveOnceAsync(
-            new CandidateProgram("public static class Seed{}"),
+            CandidateProgram.FromCSharp("public static class Seed{}"),
             adversarialRounds: rounds);
 
         Assert.True(result.IsValid);
-        Assert.Equal(finalizedSource, result.Candidate.SourceCode);
+        Assert.Equal(finalizedSource, result.Candidate.SourceMaterial);
         Assert.Equal(finalizedSource, fitnessEvaluator.LastEvaluatedSourceCode);
         Assert.Equal(finalizedSource.Length, result.Fitness);
     }
@@ -109,13 +109,13 @@ public sealed class EvolutionOrchestratorTests
     public async Task EvolveOnceAsync_Returns_Invalid_For_Compilation_Failure_And_Skips_Fitness()
     {
         var fitnessEvaluator = new ConstantFitnessEvaluator(5);
-        var orchestrator = new EvolutionOrchestrator(
-            new RoslynAstSecurityEvaluator(),
-            new RoslynDynamicCompilationService(),
-            fitnessEvaluator,
-            new ConstantMutator("public static class Runner { public static int Execute( => 1; }"));
+        var orchestrator = new EvolutionOrchestrator();
+        orchestrator.AddMutator(new ConstantMutator("public static class Runner { public static int Execute( => 1; }"));
+        orchestrator.AddSecurityEvaluator(new RoslynAstSecurityEvaluator());
+        orchestrator.SetCompilationService(new RoslynDynamicCompilationService());
+        orchestrator.SetFitnessEvaluator(fitnessEvaluator);
 
-        var result = await orchestrator.EvolveOnceAsync(new CandidateProgram("public static class Seed{}"));
+        var result = await orchestrator.EvolveOnceAsync(CandidateProgram.FromCSharp("public static class Seed{}"));
 
         Assert.False(result.IsValid);
         Assert.Equal(0, result.Fitness);
@@ -129,14 +129,14 @@ public sealed class EvolutionOrchestratorTests
     {
         var fitnessEvaluator = new ConstantFitnessEvaluator(1);
         var mutator = new CapturingMutator("public static class Runner { public static int Execute() => 1; }");
-        var orchestrator = new EvolutionOrchestrator(
-            new RoslynAstSecurityEvaluator(),
-            new RoslynDynamicCompilationService(),
-            fitnessEvaluator,
-            mutator);
+        var orchestrator = new EvolutionOrchestrator();
+        orchestrator.AddMutator(mutator);
+        orchestrator.AddSecurityEvaluator(new RoslynAstSecurityEvaluator());
+        orchestrator.SetCompilationService(new RoslynDynamicCompilationService());
+        orchestrator.SetFitnessEvaluator(fitnessEvaluator);
 
         var feedback = new[] { "compiler error", "security warning" };
-        _ = await orchestrator.EvolveOnceAsync(new CandidateProgram("public static class Seed{}"), feedback);
+        _ = await orchestrator.EvolveOnceAsync(CandidateProgram.FromCSharp("public static class Seed{}"), feedback);
 
         Assert.Equal(feedback, mutator.LastFeedback);
     }
@@ -146,13 +146,13 @@ public sealed class EvolutionOrchestratorTests
     {
         var fitnessEvaluator = new ConstantFitnessEvaluator(1);
         var mutator = new CapturingMutator("public static class Runner { public static int Execute() => 1; }");
-        var orchestrator = new EvolutionOrchestrator(
-            new RoslynAstSecurityEvaluator(),
-            new RoslynDynamicCompilationService(),
-            fitnessEvaluator,
-            mutator);
+        var orchestrator = new EvolutionOrchestrator();
+        orchestrator.AddMutator(mutator);
+        orchestrator.AddSecurityEvaluator(new RoslynAstSecurityEvaluator());
+        orchestrator.SetCompilationService(new RoslynDynamicCompilationService());
+        orchestrator.SetFitnessEvaluator(fitnessEvaluator);
 
-        _ = await orchestrator.EvolveOnceAsync(new CandidateProgram("public static class Seed{}"), null);
+        _ = await orchestrator.EvolveOnceAsync(CandidateProgram.FromCSharp("public static class Seed{}"), null);
 
         Assert.Empty(mutator.LastFeedback);
     }
@@ -162,14 +162,14 @@ public sealed class EvolutionOrchestratorTests
     {
         var fitnessEvaluator = new ConstantFitnessEvaluator(1);
         var mutator = new CapturingMutator("public static class Runner { public static int Execute() => 1; }");
-        var orchestrator = new EvolutionOrchestrator(
-            new RoslynAstSecurityEvaluator(),
-            new RoslynDynamicCompilationService(),
-            fitnessEvaluator,
-            mutator);
+        var orchestrator = new EvolutionOrchestrator();
+        orchestrator.AddMutator(mutator);
+        orchestrator.AddSecurityEvaluator(new RoslynAstSecurityEvaluator());
+        orchestrator.SetCompilationService(new RoslynDynamicCompilationService());
+        orchestrator.SetFitnessEvaluator(fitnessEvaluator);
 
         var feedback = new List<string> { "compiler error", "security warning" };
-        _ = await orchestrator.EvolveOnceAsync(new CandidateProgram("public static class Seed{}"), feedback);
+        _ = await orchestrator.EvolveOnceAsync(CandidateProgram.FromCSharp("public static class Seed{}"), feedback);
 
         Assert.Equal(feedback, mutator.LastFeedback);
         Assert.False(ReferenceEquals(feedback, mutator.LastFeedback));
@@ -180,14 +180,13 @@ public sealed class EvolutionOrchestratorTests
     {
         var fitnessEvaluator = new ConstantFitnessEvaluator(1);
         var mutator = new CapturingMutator("public static class Runner { public static int Execute() => 1; }");
-        var orchestrator = new EvolutionOrchestrator(
-            new RoslynAstSecurityEvaluator(),
-            new RoslynDynamicCompilationService(),
-            fitnessEvaluator,
-            mutator,
-            new EvolutionOrchestratorOptions(ExecutionBudgetMilliseconds: 1000));
+        var orchestrator = new EvolutionOrchestrator(new EvolutionOrchestratorOptions(ExecutionBudgetMilliseconds: 1000));
+        orchestrator.AddMutator(mutator);
+        orchestrator.AddSecurityEvaluator(new RoslynAstSecurityEvaluator());
+        orchestrator.SetCompilationService(new RoslynDynamicCompilationService());
+        orchestrator.SetFitnessEvaluator(fitnessEvaluator);
 
-        _ = await orchestrator.EvolveOnceAsync(new CandidateProgram("public static class Seed{}"));
+        _ = await orchestrator.EvolveOnceAsync(CandidateProgram.FromCSharp("public static class Seed{}"));
 
         Assert.True(mutator.LastCancellationToken.CanBeCanceled);
     }
@@ -195,14 +194,13 @@ public sealed class EvolutionOrchestratorTests
     [Fact]
     public async Task EvolveOnceAsync_Throws_When_Execution_Budget_Exceeded()
     {
-        var orchestrator = new EvolutionOrchestrator(
-            new RoslynAstSecurityEvaluator(),
-            new RoslynDynamicCompilationService(),
-            new ConstantFitnessEvaluator(1),
-            new DelayingMutator(),
-            new EvolutionOrchestratorOptions(ExecutionBudgetMilliseconds: 25));
+        var orchestrator = new EvolutionOrchestrator(new EvolutionOrchestratorOptions(ExecutionBudgetMilliseconds: 25));
+        orchestrator.AddMutator(new DelayingMutator());
+        orchestrator.AddSecurityEvaluator(new RoslynAstSecurityEvaluator());
+        orchestrator.SetCompilationService(new RoslynDynamicCompilationService());
+        orchestrator.SetFitnessEvaluator(new ConstantFitnessEvaluator(1));
 
-        var result = await orchestrator.EvolveOnceAsync(new CandidateProgram("public static class Seed{}"));
+        var result = await orchestrator.EvolveOnceAsync(CandidateProgram.FromCSharp("public static class Seed{}"));
 
         Assert.False(result.IsValid);
         Assert.Equal(double.NegativeInfinity, result.Fitness);
@@ -218,15 +216,14 @@ public sealed class EvolutionOrchestratorTests
         using var cancellationTokenSource = new CancellationTokenSource();
         await cancellationTokenSource.CancelAsync();
 
-        var orchestrator = new EvolutionOrchestrator(
-            new RoslynAstSecurityEvaluator(),
-            new RoslynDynamicCompilationService(),
-            new ConstantFitnessEvaluator(1),
-            new DelayingMutator(),
-            new EvolutionOrchestratorOptions(ExecutionBudgetMilliseconds: 1000));
+        var orchestrator = new EvolutionOrchestrator(new EvolutionOrchestratorOptions(ExecutionBudgetMilliseconds: 1000));
+        orchestrator.AddMutator(new DelayingMutator());
+        orchestrator.AddSecurityEvaluator(new RoslynAstSecurityEvaluator());
+        orchestrator.SetCompilationService(new RoslynDynamicCompilationService());
+        orchestrator.SetFitnessEvaluator(new ConstantFitnessEvaluator(1));
 
         var result = await orchestrator.EvolveOnceAsync(
-            new CandidateProgram("public static class Seed{}"),
+            CandidateProgram.FromCSharp("public static class Seed{}"),
             cancellationToken: cancellationTokenSource.Token);
 
         Assert.False(result.IsValid);
@@ -238,15 +235,14 @@ public sealed class EvolutionOrchestratorTests
     [Fact]
     public async Task EvolveOnceAsync_Throws_For_Invalid_Execution_Budget()
     {
-        var orchestrator = new EvolutionOrchestrator(
-            new RoslynAstSecurityEvaluator(),
-            new RoslynDynamicCompilationService(),
-            new ConstantFitnessEvaluator(1),
-            new ConstantMutator("public static class Runner { public static int Execute() => 1; }"),
-            new EvolutionOrchestratorOptions(ExecutionBudgetMilliseconds: 0));
+        var orchestrator = new EvolutionOrchestrator(new EvolutionOrchestratorOptions(ExecutionBudgetMilliseconds: 0));
+        orchestrator.AddMutator(new ConstantMutator("public static class Runner { public static int Execute() => 1; }"));
+        orchestrator.AddSecurityEvaluator(new RoslynAstSecurityEvaluator());
+        orchestrator.SetCompilationService(new RoslynDynamicCompilationService());
+        orchestrator.SetFitnessEvaluator(new ConstantFitnessEvaluator(1));
 
         var exception = await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() =>
-            orchestrator.EvolveOnceAsync(new CandidateProgram("public static class Seed{}")));
+            orchestrator.EvolveOnceAsync(CandidateProgram.FromCSharp("public static class Seed{}")));
 
         Assert.Equal("options", exception.ParamName);
     }
@@ -254,13 +250,13 @@ public sealed class EvolutionOrchestratorTests
     [Fact]
     public async Task EvolveOnceAsync_Propagates_Mutation_Failure_Diagnostics()
     {
-        var orchestrator = new EvolutionOrchestrator(
-            new RoslynAstSecurityEvaluator(),
-            new RoslynDynamicCompilationService(),
-            new ConstantFitnessEvaluator(1),
-            new ThrowingMutator());
+        var orchestrator = new EvolutionOrchestrator();
+        orchestrator.AddMutator(new ThrowingMutator());
+        orchestrator.AddSecurityEvaluator(new RoslynAstSecurityEvaluator());
+        orchestrator.SetCompilationService(new RoslynDynamicCompilationService());
+        orchestrator.SetFitnessEvaluator(new ConstantFitnessEvaluator(1));
 
-        var result = await orchestrator.EvolveOnceAsync(new CandidateProgram("public static class Seed{}"));
+        var result = await orchestrator.EvolveOnceAsync(CandidateProgram.FromCSharp("public static class Seed{}"));
 
         Assert.False(result.IsValid);
         Assert.Equal(double.NegativeInfinity, result.Fitness);
@@ -270,13 +266,13 @@ public sealed class EvolutionOrchestratorTests
     [Fact]
     public async Task EvolveOnceAsync_Propagates_Fitness_Failure_Diagnostics()
     {
-        var orchestrator = new EvolutionOrchestrator(
-            new RoslynAstSecurityEvaluator(),
-            new RoslynDynamicCompilationService(),
-            new ThrowingFitnessEvaluator(),
-            new ConstantMutator("public static class Runner { public static int Execute() => 1; }"));
+        var orchestrator = new EvolutionOrchestrator();
+        orchestrator.AddMutator(new ConstantMutator("public static class Runner { public static int Execute() => 1; }"));
+        orchestrator.AddSecurityEvaluator(new RoslynAstSecurityEvaluator());
+        orchestrator.SetCompilationService(new RoslynDynamicCompilationService());
+        orchestrator.SetFitnessEvaluator(new ThrowingFitnessEvaluator());
 
-        var result = await orchestrator.EvolveOnceAsync(new CandidateProgram("public static class Seed{}"));
+        var result = await orchestrator.EvolveOnceAsync(CandidateProgram.FromCSharp("public static class Seed{}"));
 
         Assert.False(result.IsValid);
         Assert.Equal(double.NegativeInfinity, result.Fitness);
@@ -285,12 +281,14 @@ public sealed class EvolutionOrchestratorTests
 
     private sealed class ConstantMutator(string sourceCode) : IEvolutionMutator
     {
+        public CandidateFormat Format => CandidateFormat.CSharp;
         public Task<CandidateProgram> MutateAsync(CandidateProgram candidate, IReadOnlyList<string> feedback, CancellationToken cancellationToken = default)
-            => Task.FromResult(new CandidateProgram(sourceCode, candidate.Id));
+            => Task.FromResult(CandidateProgram.FromCSharp(sourceCode, candidate.ParentId, candidate.Id));
     }
 
     private sealed class CapturingMutator(string sourceCode) : IEvolutionMutator
     {
+        public CandidateFormat Format => CandidateFormat.CSharp;
         public IReadOnlyList<string> LastFeedback { get; private set; } = [];
         public CancellationToken LastCancellationToken { get; private set; }
 
@@ -298,12 +296,13 @@ public sealed class EvolutionOrchestratorTests
         {
             LastFeedback = feedback;
             LastCancellationToken = cancellationToken;
-            return Task.FromResult(new CandidateProgram(sourceCode, candidate.Id));
+            return Task.FromResult(CandidateProgram.FromCSharp(sourceCode, candidate.ParentId, candidate.Id));
         }
     }
 
     private sealed class DelayingMutator : IEvolutionMutator
     {
+        public CandidateFormat Format => CandidateFormat.CSharp;
         public async Task<CandidateProgram> MutateAsync(CandidateProgram candidate, IReadOnlyList<string> feedback, CancellationToken cancellationToken = default)
         {
             await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken);
@@ -313,6 +312,7 @@ public sealed class EvolutionOrchestratorTests
 
     private sealed class ThrowingMutator : IEvolutionMutator
     {
+        public CandidateFormat Format => CandidateFormat.CSharp;
         public Task<CandidateProgram> MutateAsync(CandidateProgram candidate, IReadOnlyList<string> feedback, CancellationToken cancellationToken = default)
             => throw new InvalidOperationException("Mutation failed.");
     }
@@ -340,8 +340,8 @@ public sealed class EvolutionOrchestratorTests
 
         public Task<double> EvaluateAsync(CandidateProgram candidate, CancellationToken cancellationToken = default)
         {
-            LastEvaluatedSourceCode = candidate.SourceCode;
-            return Task.FromResult((double)candidate.SourceCode.Length);
+            LastEvaluatedSourceCode = candidate.SourceMaterial;
+            return Task.FromResult((double)candidate.SourceMaterial.Length);
         }
     }
 
@@ -365,8 +365,8 @@ public sealed class EvolutionOrchestratorTests
 
         return new AdversarialRoundResult(
             assignment,
-            new CandidateProgram(before),
-            new CandidateProgram(after),
+            CandidateProgram.FromCSharp(before),
+            CandidateProgram.FromCSharp(after),
             reports,
             [],
             decisions);
