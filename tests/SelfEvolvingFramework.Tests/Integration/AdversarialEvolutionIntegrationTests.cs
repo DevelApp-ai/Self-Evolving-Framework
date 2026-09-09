@@ -101,6 +101,7 @@ public sealed class AdversarialEvolutionIntegrationTests
 
     private sealed class ConstantMutator(string sourceCode) : IEvolutionMutator
     {
+        public CandidateFormat Format => CandidateFormat.CSharp;
         public Task<CandidateProgram> MutateAsync(CandidateProgram candidate, IReadOnlyList<string> feedback, CancellationToken cancellationToken = default)
             => Task.FromResult(CandidateProgram.FromCSharp(sourceCode, candidate.Id));
     }

@@ -57,6 +57,7 @@ public sealed class AdversarialLoopWiringIntegrationTests
 
     private sealed class RecordingMutator : IEvolutionMutator
     {
+        public CandidateFormat Format => CandidateFormat.CSharp;
         public IReadOnlyList<string> LastFeedback { get; private set; } = Array.Empty<string>();
 
         public Task<CandidateProgram> MutateAsync(CandidateProgram candidate, IReadOnlyList<string> feedback, CancellationToken cancellationToken = default)
