@@ -56,7 +56,7 @@ public sealed class MultiTeamAdversarialReviewOrchestratorTests
             new AdversarialWorkflowOptions(MaxRounds: 3));
 
         var result = await orchestrator.RunAsync(
-            new CandidateProgram("public static class Seed { }"),
+            CandidateProgram.FromCSharp("public static class Seed { }"),
             teams);
 
         Assert.True(result.Converged);
@@ -97,7 +97,7 @@ public sealed class MultiTeamAdversarialReviewOrchestratorTests
             new AdversarialWorkflowOptions(MaxRounds: 3));
 
         var result = await orchestrator.RunAsync(
-            new CandidateProgram("public static class Seed { }"),
+            CandidateProgram.FromCSharp("public static class Seed { }"),
             teams);
 
         Assert.True(result.Converged);
@@ -125,7 +125,7 @@ public sealed class MultiTeamAdversarialReviewOrchestratorTests
             new SequentialAdjudicationEngine([], []));
 
         await Assert.ThrowsAsync<InvalidOperationException>(() => orchestrator.RunAsync(
-            new CandidateProgram("public static class Seed { }"),
+            CandidateProgram.FromCSharp("public static class Seed { }"),
             [new AdversarialTeamDefinition("team-1")]));
     }
 
@@ -155,7 +155,7 @@ public sealed class MultiTeamAdversarialReviewOrchestratorTests
             new AdversarialWorkflowOptions(MaxRounds: 3));
 
         var result = await orchestrator.RunAsync(
-            new CandidateProgram("public static class Seed { }"),
+            CandidateProgram.FromCSharp("public static class Seed { }"),
             teams);
 
         Assert.True(result.Converged);
@@ -197,7 +197,7 @@ public sealed class MultiTeamAdversarialReviewOrchestratorTests
             new AdversarialWorkflowOptions(MaxRounds: 3));
 
         var result = await orchestrator.RunAsync(
-            new CandidateProgram("public static class Seed { }"),
+            CandidateProgram.FromCSharp("public static class Seed { }"),
             teams);
 
         Assert.True(result.Converged);
@@ -228,7 +228,7 @@ public sealed class MultiTeamAdversarialReviewOrchestratorTests
         public Task<CandidateProgram> ProposeAsync(AdversarialRoleContext context, CancellationToken cancellationToken = default)
         {
             ProposeCalls++;
-            return Task.FromResult(new CandidateProgram(context.CurrentCandidate.SourceCode, context.CurrentCandidate.Id));
+            return Task.FromResult(CandidateProgram.FromCSharp(context.CurrentCandidate.SourceMaterial, context.CurrentCandidate.Id));
         }
 
         public Task<IReadOnlyList<FlawReport>> ReviewAsync(AdversarialRoleContext context, CancellationToken cancellationToken = default)
@@ -252,7 +252,7 @@ public sealed class MultiTeamAdversarialReviewOrchestratorTests
             CancellationToken cancellationToken = default)
         {
             FixCalls++;
-            return Task.FromResult(new CandidateProgram(context.CurrentCandidate.SourceCode, context.CurrentCandidate.Id));
+            return Task.FromResult(CandidateProgram.FromCSharp(context.CurrentCandidate.SourceMaterial, context.CurrentCandidate.Id));
         }
     }
 
@@ -298,7 +298,7 @@ public sealed class MultiTeamAdversarialReviewOrchestratorTests
         public List<string[]> OpposeFlawIdsByRound { get; } = [];
 
         public Task<CandidateProgram> ProposeAsync(AdversarialRoleContext context, CancellationToken cancellationToken = default)
-            => Task.FromResult(new CandidateProgram(context.CurrentCandidate.SourceCode, context.CurrentCandidate.Id));
+            => Task.FromResult(CandidateProgram.FromCSharp(context.CurrentCandidate.SourceMaterial, context.CurrentCandidate.Id));
 
         public Task<IReadOnlyList<FlawReport>> ReviewAsync(AdversarialRoleContext context, CancellationToken cancellationToken = default)
         {

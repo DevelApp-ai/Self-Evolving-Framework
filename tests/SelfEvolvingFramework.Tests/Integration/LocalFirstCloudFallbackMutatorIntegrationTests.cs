@@ -39,11 +39,11 @@ public sealed class LocalFirstCloudFallbackMutatorIntegrationTests
                 new ModelEndpointOptions("cloud-small", "https://api.mistral.ai/v1", "mistral-small-latest")));
 
         var mutator = new SemanticKernelEvolutionMutator(routingService, "Improve correctness.");
-        var seed = new CandidateProgram("public static class Runner { public static int Execute() => 1; }");
+        var seed = CandidateProgram.FromCSharp("public static class Runner { public static int Execute() => 1; }");
 
         var mutated = await mutator.MutateAsync(seed, []);
 
-        Assert.Equal("public static class Runner { public static int Execute() => 42; }", mutated.SourceCode);
+        Assert.Equal("public static class Runner { public static int Execute() => 42; }", mutated.SourceMaterial);
         Assert.NotNull(routingService.LastRoutingTelemetry);
         Assert.Equal("cloud-small", routingService.LastRoutingTelemetry!.SelectedEndpointId);
     }
@@ -83,12 +83,12 @@ public sealed class LocalFirstCloudFallbackMutatorIntegrationTests
             healthMonitor);
 
         var mutator = new SemanticKernelEvolutionMutator(routingService, "Improve correctness.");
-        var seed = new CandidateProgram("public static class Runner { public static int Execute() => 0; }");
+        var seed = CandidateProgram.FromCSharp("public static class Runner { public static int Execute() => 0; }");
 
         var mutated = await mutator.MutateAsync(seed, []);
 
         Assert.False(localInvoked);
-        Assert.Equal("public static class Runner { public static int Execute() => 42; }", mutated.SourceCode);
+        Assert.Equal("public static class Runner { public static int Execute() => 42; }", mutated.SourceMaterial);
         Assert.NotNull(routingService.LastRoutingTelemetry);
         Assert.Equal("cloud-small", routingService.LastRoutingTelemetry!.SelectedEndpointId);
     }
@@ -128,12 +128,12 @@ public sealed class LocalFirstCloudFallbackMutatorIntegrationTests
             healthMonitor);
 
         var mutator = new SemanticKernelEvolutionMutator(routingService, "Improve correctness.");
-        var seed = new CandidateProgram("public static class Runner { public static int Execute() => 0; }");
+        var seed = CandidateProgram.FromCSharp("public static class Runner { public static int Execute() => 0; }");
 
         var mutated = await mutator.MutateAsync(seed, []);
 
         Assert.False(cloudInvoked);
-        Assert.Equal("public static class Runner { public static int Execute() => 11; }", mutated.SourceCode);
+        Assert.Equal("public static class Runner { public static int Execute() => 11; }", mutated.SourceMaterial);
         Assert.NotNull(routingService.LastRoutingTelemetry);
         Assert.Equal("local-primary", routingService.LastRoutingTelemetry!.SelectedEndpointId);
     }

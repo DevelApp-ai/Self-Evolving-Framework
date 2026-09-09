@@ -20,6 +20,8 @@ public sealed class SemanticKernelEvolutionCrossover(
 
     private readonly string _systemPrompt = string.IsNullOrWhiteSpace(systemPrompt) ? DefaultSystemPrompt : systemPrompt;
 
+    public CandidateFormat Format => CandidateFormat.CSharp;
+
     public async Task<CandidateProgram> CrossoverAsync(
         CandidateProgram parentA,
         CandidateProgram parentB,
@@ -28,33 +30,33 @@ public sealed class SemanticKernelEvolutionCrossover(
         ArgumentNullException.ThrowIfNull(parentA);
         ArgumentNullException.ThrowIfNull(parentB);
 
-        var history = CreateChatHistory(parentA.SourceCode, parentB.SourceCode);
+        var history = CreateChatHistory(parentA.SourceMaterial, parentB.SourceMaterial);
         var responses = await _chatCompletionService.GetChatMessageContentsAsync(history, null, null, cancellationToken);
         var offspringSource = SemanticKernelEvolutionMutator.ExtractCode(responses.FirstOrDefault()?.Content);
 
         return string.IsNullOrWhiteSpace(offspringSource)
             ? parentA
-            : new CandidateProgram(offspringSource, parentA.Id);
+            : CandidateProgram.FromCSharp(offspringSource, parentA.ParentId, parentA.Id);
     }
 
-    internal ChatHistory CreateChatHistory(string parentASourceCode, string parentBSourceCode)
+    internal ChatHistory CreateChatHistory(string parentASourceMaterial, string parentBSourceMaterial)
     {
         var history = new ChatHistory(_systemPrompt);
-        history.AddUserMessage(BuildCrossoverPrompt(parentASourceCode, parentBSourceCode));
+        history.AddUserMessage(BuildCrossoverPrompt(parentASourceMaterial, parentBSourceMaterial));
         return history;
     }
 
-    internal string BuildCrossoverPrompt(string parentASourceCode, string parentBSourceCode)
+    internal string BuildCrossoverPrompt(string parentASourceMaterial, string parentBSourceMaterial)
     {
         var builder = new StringBuilder();
         builder.AppendLine("Objective:");
         builder.AppendLine(_objective);
         builder.AppendLine();
         builder.AppendLine("Parent A C# source:");
-        builder.AppendLine(parentASourceCode);
+        builder.AppendLine(parentASourceMaterial);
         builder.AppendLine();
         builder.AppendLine("Parent B C# source:");
-        builder.AppendLine(parentBSourceCode);
+        builder.AppendLine(parentBSourceMaterial);
         builder.AppendLine();
         builder.AppendLine("Combine the strongest traits from both parents into one valid C# source file.");
         builder.AppendLine("Return only the full revised C# source code.");
