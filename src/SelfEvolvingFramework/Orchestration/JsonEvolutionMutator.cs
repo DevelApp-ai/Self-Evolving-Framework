@@ -1,6 +1,8 @@
 using System.Text;
+using System.Text.Json;
 using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.ChatCompletion;
+using SelfEvolvingFramework.LlmRouting;
 using SelfEvolvingFramework.Core;
 
 namespace SelfEvolvingFramework.Orchestration;
@@ -148,12 +150,12 @@ public sealed class JsonEvolutionMutator : IEvolutionMutator
 
         return new PromptExecutionSettings
         {
-            Temperature = _options.Temperature,
-            MaxTokens = _options.MaxTokens,
-            TopP = _options.TopP,
             ExtensionData = new Dictionary<string, object>(StringComparer.Ordinal)
             {
-                ["executionBudgetMilliseconds"] = executionBudgetMilliseconds.Value
+                ["temperature"] = _options.Temperature,
+                ["max_tokens"] = _options.MaxTokens,
+                ["top_p"] = _options.TopP,
+                [RoutingExecutionSettingsKeys.ExecutionBudgetMilliseconds] = executionBudgetMilliseconds.Value
             }
         };
     }
@@ -171,7 +173,7 @@ public sealed class JsonEvolutionMutator : IEvolutionMutator
             var json = content.Substring(jsonStart, jsonEnd - jsonStart + 1);
             try
             {
-                using var _ = JsonDocument.Parse(json);
+                using var _ = LenientJson.Parse(json);
                 return json;
             }
             catch (JsonException) { }
@@ -185,7 +187,7 @@ public sealed class JsonEvolutionMutator : IEvolutionMutator
             var json = content.Substring(jsonStart, jsonEnd - jsonStart + 1);
             try
             {
-                using var _ = JsonDocument.Parse(json);
+                using var _ = LenientJson.Parse(json);
                 return json;
             }
             catch (JsonException) { }

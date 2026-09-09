@@ -22,7 +22,7 @@ public sealed class XStateFitnessEvaluator : IFitnessEvaluator
         try
         {
             var score = 0.0;
-            using var jsonDoc = JsonDocument.Parse(candidate.SourceMaterial);
+            using var jsonDoc = LenientJson.Parse(candidate.SourceMaterial);
 
             if (HasRequiredFields(jsonDoc))
                 score += _options.RequiredFieldsWeight;

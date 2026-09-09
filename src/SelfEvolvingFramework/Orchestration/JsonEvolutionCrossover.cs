@@ -1,4 +1,5 @@
 using System.Text;
+using System.Text.Json;
 using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.ChatCompletion;
 using SelfEvolvingFramework.Core;
@@ -79,7 +80,7 @@ public sealed class JsonEvolutionCrossover : IEvolutionCrossover
             var json = content.Substring(jsonStart, jsonEnd - jsonStart + 1);
             try
             {
-                using var _ = JsonDocument.Parse(json);
+                using var _ = LenientJson.Parse(json);
                 return json;
             }
             catch (JsonException) { }
@@ -93,7 +94,7 @@ public sealed class JsonEvolutionCrossover : IEvolutionCrossover
             var json = content.Substring(jsonStart, jsonEnd - jsonStart + 1);
             try
             {
-                using var _ = JsonDocument.Parse(json);
+                using var _ = LenientJson.Parse(json);
                 return json;
             }
             catch (JsonException) { }

@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Reflection;
 using SelfEvolvingFramework.Compilation;
 using SelfEvolvingFramework.Core;
 using SelfEvolvingFramework.Security;

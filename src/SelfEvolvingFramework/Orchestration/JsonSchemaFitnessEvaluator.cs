@@ -22,7 +22,7 @@ public sealed class JsonSchemaFitnessEvaluator : IFitnessEvaluator
         try
         {
             var score = 0.0;
-            using var jsonDoc = JsonDocument.Parse(candidate.SourceMaterial);
+            using var jsonDoc = LenientJson.Parse(candidate.SourceMaterial);
 
             if (HasRequiredSchemaFields(jsonDoc))
                 score += _options.RequiredFieldsWeight;
