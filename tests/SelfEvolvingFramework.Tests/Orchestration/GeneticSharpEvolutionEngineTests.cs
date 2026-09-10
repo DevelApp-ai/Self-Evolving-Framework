@@ -125,6 +125,7 @@ public sealed class GeneticSharpEvolutionEngineTests
 
     private sealed class RecordingMutator : IEvolutionMutator
     {
+        public CandidateFormat Format => CandidateFormat.CSharp;
         public int CallCount { get; private set; }
 
         public Task<CandidateProgram> MutateAsync(

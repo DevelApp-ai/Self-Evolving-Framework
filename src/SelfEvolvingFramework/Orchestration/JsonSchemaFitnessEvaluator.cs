@@ -22,7 +22,7 @@ public sealed class JsonSchemaFitnessEvaluator : IFitnessEvaluator
         try
         {
             var score = 0.0;
-            using var jsonDoc = JsonDocument.Parse(candidate.SourceMaterial);
+            using var jsonDoc = LenientJson.Parse(candidate.SourceMaterial);
 
             if (HasRequiredSchemaFields(jsonDoc))
                 score += _options.RequiredFieldsWeight;
@@ -61,6 +61,9 @@ public sealed class JsonSchemaFitnessEvaluator : IFitnessEvaluator
     private static bool HasValidTypes(JsonDocument jsonDoc)
     {
         var root = jsonDoc.RootElement;
+        if (!root.TryGetProperty("$schema", out _))
+            return false;
+
         if (root.TryGetProperty("type", out var typeProp))
         {
             var typeValue = typeProp.GetString();
@@ -75,7 +78,7 @@ public sealed class JsonSchemaFitnessEvaluator : IFitnessEvaluator
         var root = jsonDoc.RootElement;
         if (!root.TryGetProperty("properties", out var properties) ||
             properties.ValueKind != JsonValueKind.Object)
-            return 0.5;
+            return 0;
 
         var totalProperties = 0;
         var validProperties = 0;
@@ -96,7 +99,7 @@ public sealed class JsonSchemaFitnessEvaluator : IFitnessEvaluator
             }
         }
 
-        return totalProperties > 0 ? (double)validProperties / totalProperties : 0.5;
+        return totalProperties > 0 ? (double)validProperties / totalProperties : 0;
     }
 
     private static bool HasRequiredFieldsDefined(JsonDocument jsonDoc)
@@ -152,6 +155,6 @@ public sealed class JsonSchemaFitnessEvaluator : IFitnessEvaluator
             }
         }
 
-        return ruleCount > 0 ? score / ruleCount : 0.5;
+        return ruleCount > 0 ? score / ruleCount : 0;
     }
 }

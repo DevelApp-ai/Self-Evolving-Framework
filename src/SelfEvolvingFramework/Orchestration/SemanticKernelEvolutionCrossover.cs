@@ -36,7 +36,7 @@ public sealed class SemanticKernelEvolutionCrossover(
 
         return string.IsNullOrWhiteSpace(offspringSource)
             ? parentA
-            : CandidateProgram.FromCSharp(offspringSource, parentA.ParentId, parentA.Id);
+            : CandidateProgram.FromCSharp(offspringSource, parentA.Id);
     }
 
     internal ChatHistory CreateChatHistory(string parentASourceMaterial, string parentBSourceMaterial)

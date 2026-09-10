@@ -67,7 +67,7 @@ public sealed class PlaywrightPostCompilationBehavioralEvaluatorTests
 
     private sealed class StubCompilationService(CompilationResult result) : IDynamicCompilationService
     {
-        public CompilationResult Compile(string sourceCode) => result;
+        public CompilationResult Compile(CandidateProgram candidate) => result;
     }
 
     private sealed class StubAssemblyExecutor(ExecutionResult? result = null) : IIsolatedAssemblyExecutor

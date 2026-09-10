@@ -9,11 +9,11 @@ public sealed class RoslynAstSecurityEvaluator(AstSecurityOptions? options = nul
 {
     private readonly AstSecurityOptions _options = options ?? new AstSecurityOptions();
 
-    public CandidateFormat Format => CandidateFormat.CSharp;
+    public global::SelfEvolvingFramework.Core.CandidateFormat Format => global::SelfEvolvingFramework.Core.CandidateFormat.CSharp;
 
     public SecurityEvaluationResult Evaluate(string sourceMaterial)
     {
-        var tree = CSharpSyntaxTree.ParseText(sourceCode);
+        var tree = CSharpSyntaxTree.ParseText(sourceMaterial);
         var root = tree.GetRoot();
         var violations = new List<string>();
         var semanticModel = TryCreateSemanticModel(tree);

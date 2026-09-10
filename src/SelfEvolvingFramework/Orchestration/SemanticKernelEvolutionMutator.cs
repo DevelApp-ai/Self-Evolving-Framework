@@ -35,7 +35,7 @@ public sealed class SemanticKernelEvolutionMutator(
 
         return string.IsNullOrWhiteSpace(mutatedSource)
             ? candidate
-            : CandidateProgram.FromCSharp(mutatedSource, candidate.ParentId, candidate.Id);
+            : CandidateProgram.FromCSharp(mutatedSource, candidate.Id);
     }
 
     internal ChatHistory CreateChatHistory(CandidateProgram candidate, IReadOnlyList<string> feedback)

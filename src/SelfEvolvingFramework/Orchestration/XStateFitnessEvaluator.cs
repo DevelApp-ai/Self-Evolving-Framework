@@ -22,7 +22,7 @@ public sealed class XStateFitnessEvaluator : IFitnessEvaluator
         try
         {
             var score = 0.0;
-            using var jsonDoc = JsonDocument.Parse(candidate.SourceMaterial);
+            using var jsonDoc = LenientJson.Parse(candidate.SourceMaterial);
 
             if (HasRequiredFields(jsonDoc))
                 score += _options.RequiredFieldsWeight;
@@ -86,7 +86,7 @@ public sealed class XStateFitnessEvaluator : IFitnessEvaluator
         var root = jsonDoc.RootElement;
         if (!root.TryGetProperty("states", out var states) ||
             states.ValueKind != JsonValueKind.Object)
-            return 0.5;
+            return 0;
 
         var totalStates = 0;
         var reachableStates = new HashSet<string>();
@@ -98,14 +98,14 @@ public sealed class XStateFitnessEvaluator : IFitnessEvaluator
             var stateName = enumerator.Current.Name;
             var state = enumerator.Current.Value;
 
-            if (IsStateReachable(state, root))
+            if (IsStateReachable(state, root, []))
                 reachableStates.Add(stateName);
         }
 
         return totalStates > 0 ? (double)reachableStates.Count / totalStates : 0.5;
     }
 
-    private static bool IsStateReachable(JsonElement state, JsonElement root)
+    private static bool IsStateReachable(JsonElement state, JsonElement root, HashSet<string> visiting)
     {
         if (!root.TryGetProperty("initial", out var initial))
             return false;
@@ -126,6 +126,9 @@ public sealed class XStateFitnessEvaluator : IFitnessEvaluator
                 if (target.ValueKind == JsonValueKind.String)
                 {
                     var targetState = target.GetString();
+                    if (targetState is null || visiting.Contains(targetState))
+                        continue;
+
                     if (root.TryGetProperty("states", out var states) &&
                         states.ValueKind == JsonValueKind.Object)
                     {
@@ -133,7 +136,11 @@ public sealed class XStateFitnessEvaluator : IFitnessEvaluator
                         while (statesEnumerator.MoveNext())
                         {
                             if (statesEnumerator.Current.Name.Equals(targetState, StringComparison.Ordinal))
-                                return IsStateReachable(statesEnumerator.Current.Value, root);
+                            {
+                                visiting.Add(targetState);
+                                if (IsStateReachable(statesEnumerator.Current.Value, root, visiting))
+                                    return true;
+                            }
                         }
                     }
                 }
@@ -148,7 +155,7 @@ public sealed class XStateFitnessEvaluator : IFitnessEvaluator
         var root = jsonDoc.RootElement;
         if (!root.TryGetProperty("states", out var states) ||
             states.ValueKind != JsonValueKind.Object)
-            return 0.5;
+            return 0;
 
         var totalTransitions = 0;
         var validTransitions = 0;

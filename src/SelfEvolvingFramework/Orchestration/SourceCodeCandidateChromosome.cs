@@ -5,7 +5,7 @@ namespace SelfEvolvingFramework.Orchestration;
 
 internal sealed class SourceCodeCandidateChromosome : ChromosomeBase
 {
-    public SourceCodeCandidateChromosome(CandidateProgram candidate) : base(1)
+    public SourceCodeCandidateChromosome(CandidateProgram candidate) : base(2)
     {
         SetCandidate(candidate);
     }
@@ -14,10 +14,10 @@ internal sealed class SourceCodeCandidateChromosome : ChromosomeBase
 
     public override Gene GenerateGene(int geneIndex)
     {
-        if (geneIndex != 0)
+        if (geneIndex < 0 || geneIndex > 1)
             throw new ArgumentOutOfRangeException(nameof(geneIndex));
 
-        return new Gene(Candidate.SourceMaterial);
+        return new Gene(Candidate?.SourceMaterial ?? string.Empty);
     }
 
     public override IChromosome CreateNew()
@@ -37,6 +37,8 @@ internal sealed class SourceCodeCandidateChromosome : ChromosomeBase
     public void SetCandidate(CandidateProgram candidateProgram)
     {
         Candidate = candidateProgram;
-        ReplaceGene(0, new Gene(candidateProgram.SourceMaterial));
+        var gene = new Gene(candidateProgram.SourceMaterial);
+        ReplaceGene(0, gene);
+        ReplaceGene(1, gene);
     }
 }

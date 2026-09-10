@@ -1,4 +1,5 @@
 using System.Reflection;
+using SelfEvolvingFramework.Compilation;
 
 namespace SelfEvolvingFramework.Core;
 
@@ -16,7 +17,7 @@ public sealed record CandidateProgram
     public string SourceMaterial { get; init; }
     public CandidateFormat Format { get; init; }
     public Assembly? CompiledAssembly { get; set; }
-    public CompilationResult? CompilationResult { get; set; }
+    public global::SelfEvolvingFramework.Compilation.CompilationResult? CompilationResult { get; set; }
 
     private CandidateProgram(string sourceMaterial, string? parentId, string? id, CandidateFormat format)
     {

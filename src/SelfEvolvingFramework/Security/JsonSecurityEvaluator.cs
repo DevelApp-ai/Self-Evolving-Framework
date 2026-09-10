@@ -21,7 +21,7 @@ public sealed class JsonSecurityEvaluator : IAstSecurityEvaluator
         {
             var violations = new List<string>();
 
-            using var jsonDoc = JsonDocument.Parse(sourceMaterial);
+            using var jsonDoc = LenientJson.Parse(sourceMaterial);
 
             if (ContainsPrototypePollution(jsonDoc))
                 violations.Add("Potential prototype pollution pattern detected");
