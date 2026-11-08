@@ -62,3 +62,7 @@ The library is configured as a NuGet package with `GeneratePackageOnBuild=true`.
 ## Implementation roadmap
 
 - TDS-derived implementation plan and progress tracking: `docs/Implementation TODO.md`
+
+## License
+
+MIT — see [LICENSE](LICENSE). Copyright (c) 2026 DevelApp.ai ApS.
