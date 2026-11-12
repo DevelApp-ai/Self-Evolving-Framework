@@ -14,14 +14,16 @@ public sealed class PublishWorkflowConfigurationTests
     }
 
     [Fact]
-    public void PublishWorkflow_Resolves_NuGet_Key_From_Release_Environment_Context()
+    public void PublishWorkflow_Resolves_NuGet_Key_From_Trusted_Publishing_Login()
     {
         var workflow = ReadPublishWorkflow();
 
         Assert.Contains("environment: ${{ vars.RELEASE_ENVIRONMENT || 'shared' }}", workflow);
-        Assert.Contains("env:", workflow);
-        Assert.Contains("NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}", workflow);
-        Assert.Contains("NUGET_API_KEY is not configured. Add a valid NuGet.org API key in repository, organization, or selected release environment secrets", workflow);
+        Assert.Contains("id-token: write", workflow);
+        Assert.Contains("uses: NuGet/login@v1", workflow);
+        Assert.Contains("user: ${{ secrets.NUGET_USER }}", workflow);
+        Assert.Contains("dotnet nuget push \"${{ env.PACKAGE_FILE }}\" --source https://api.nuget.org/v3/index.json --api-key \"${{ steps.nuget-login.outputs.NUGET_API_KEY }}\" --skip-duplicate", workflow);
+        Assert.DoesNotContain("secrets.NUGET_API_KEY", workflow);
     }
 
     [Fact]

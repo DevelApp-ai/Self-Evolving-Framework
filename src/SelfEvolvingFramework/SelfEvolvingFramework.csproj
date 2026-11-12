@@ -4,11 +4,11 @@
     <TargetFramework>net8.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
-    <PackageId>DevelApp.Self-Evolving-Framework</PackageId>
+    <PackageId>DevelApp.SelfEvolvingFramework</PackageId>
     <Title>Self-Evolving Framework</Title>
     <Description>Framework primitives for secure LLM-driven code evolution in C#.</Description>
     <Authors>DevelApp-ai</Authors>
-    <Copyright>Copyright ɠDevelApp.ai ApS 2026</Copyright>
+    <Copyright>Copyright © DevelApp.ai ApS 2026</Copyright>
     <PackageTags>llm;genetic-algorithm;roslyn;dynamic-compilation;framework</PackageTags>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
