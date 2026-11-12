@@ -117,7 +117,7 @@ jobs:
           probe_dir="$(mktemp -d /tmp/package-probe-pr-XXXXXX)"
           dotnet new classlib --framework net8.0 --output "$probe_dir" --force
           for attempt in 1 2 3 4 5; do
-            if dotnet add "$probe_dir" package DevelApp.SelfEvolvingFramework --version "${{ env.PACKAGE_VERSION }}" --source "https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json"; then
+            if dotnet add "$probe_dir" package DevelApp.Self-Evolving-Framework --version "${{ env.PACKAGE_VERSION }}" --source "https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json"; then
               exit 0
             fi
 
@@ -343,7 +343,7 @@ jobs:
           probe_dir="$(mktemp -d /tmp/package-probe-release-XXXXXX)"
           dotnet new classlib --framework net8.0 --output "$probe_dir" --force
           for attempt in 1 2 3 4 5; do
-            if dotnet add "$probe_dir" package DevelApp.SelfEvolvingFramework --version "${{ env.PACKAGE_VERSION }}" --source "https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json"; then
+            if dotnet add "$probe_dir" package DevelApp.Self-Evolving-Framework --version "${{ env.PACKAGE_VERSION }}" --source "https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json"; then
               exit 0
             fi
 
@@ -374,17 +374,14 @@ jobs:
         #   Repository:      Self-Evolving-Framework
         #   Workflow File:   publish-packages.yml
         #   Environment:     the job's environment (vars.RELEASE_ENVIRONMENT || 'shared') - the policy must name the same environment
-        # The DevelApp.SelfEvolvingFramework package is owned by Lars' personal
-        # larsbuch nuget.org account, so the profile name is the literal below
-        # (an org-level NUGET_USER secret carries the org account name and would
-        # be wrong here). NUGET_USER = the nuget.org profile name (NOT an
-        # email address). The login runs close to the push (the temp key is
-        # short-lived). Fails loudly if the policy is not (yet) registered.
+        # NUGET_USER (org secret) = the nuget.org profile name of the owning
+        # account (larsbuch, NOT an email address). The login runs close to the
+        # push (the temp key is short-lived). Fails loudly if the policy is not
+        # (yet) registered.
         id: nuget-login
-        if: true
         uses: NuGet/login@v1
         with:
-          user: larsbuch
+          user: ${{ secrets.NUGET_USER }}
       - name: Publish release to NuGet.org
         # Keyless trusted-publishing key from the login step above.
         run: dotnet nuget push "${{ env.PACKAGE_FILE }}" --source https://api.nuget.org/v3/index.json --api-key "${{ steps.nuget-login.outputs.NUGET_API_KEY }}" --skip-duplicate
