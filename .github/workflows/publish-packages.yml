@@ -1,5 +1,15 @@
 name: Package and Publish
 
+# Package releases follow org decisions DevelApp-ai/DevelApp-Repo-Global#38
+# and #73 (incl. the SHA-256 amendment, 2026-11-12). Release jobs (main-branch
+# pushes and release-published events) pack once, SIGN with Certum cloud code
+# signing (SHA-256 fingerprint interface, identical on .NET 9/.NET 10 SDKs,
+# no SDK pin), then publish in the fixed #73 order - GitHub Packages ->
+# GitHub Release -> NuGet.org - with loud failures (the NuGet.org push is
+# last so it can never block the org feed or the release). PR-triggered
+# prerelease builds do not sign and publish to GitHub Packages only, per the
+# wave-2 rule that PR builds never consume a TOTP window.
+
 on:
   pull_request:
     branches:
@@ -123,7 +133,9 @@ jobs:
     if: (github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'release' && github.event.action == 'published')
     needs: build-test
     runs-on: ubuntu-latest
-    environment: ${{ vars.RELEASE_ENVIRONMENT || 'shared' }}
+    outputs:
+      package_version: ${{ steps.meta.outputs.package_version }}
+      package_file: ${{ steps.meta.outputs.package_file }}
     env:
       NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
     permissions:
@@ -186,6 +198,134 @@ jobs:
 
           package_file="${packages[0]}"
           echo "PACKAGE_FILE=$package_file" >> $GITHUB_ENV
+
+      - name: Export package metadata
+        id: meta
+        run: |
+          echo "package_version=${PACKAGE_VERSION}" >> "$GITHUB_OUTPUT"
+          echo "package_file=$(basename "${PACKAGE_FILE}")" >> "$GITHUB_OUTPUT"
+
+      - name: Upload unsigned package
+        uses: actions/upload-artifact@v5
+        with:
+          name: release-package-unsigned
+          path: ${{ env.PACKAGE_FILE }}
+          if-no-files-found: error
+
+  sign-release:
+    name: Sign Release Package (Certum cloud)
+    if: (github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'release' && github.event.action == 'published')
+    needs: package-release
+    runs-on: windows-latest
+
+    steps:
+      - name: Download package
+        uses: actions/download-artifact@v5
+        with:
+          name: release-package-unsigned
+          path: packages/
+
+      - name: Validate signing inputs
+        # Fail fast BEFORE the SimplySign login consumes a TOTP window
+        # (values are never echoed).
+        shell: pwsh
+        env:
+          CERTUM_SIMPLYSIGN_USERID: ${{ secrets.CERTUM_SIMPLYSIGN_USERID }}
+          CERTUM_SIMPLYSIGN_OTP_URI: ${{ secrets.CERTUM_SIMPLYSIGN_OTP_URI }}
+          CERTUM_THUMBPRINT: ${{ secrets.CODE_SIGNING_CERT_THUMBPRINT }}
+          CERTUM_FINGERPRINT_SHA256: ${{ secrets.CODE_SIGNING_CERT_FINGERPRINT_SHA256 }}
+        run: |
+          foreach ($name in @('CERTUM_SIMPLYSIGN_USERID','CERTUM_SIMPLYSIGN_OTP_URI','CERTUM_THUMBPRINT','CERTUM_FINGERPRINT_SHA256')) {
+            if ([string]::IsNullOrWhiteSpace([Environment]::GetEnvironmentVariable($name))) {
+              throw "Missing signing input: $name (org secrets setup, decision #38)"
+            }
+          }
+          $tp = $env:CERTUM_THUMBPRINT -replace '\s',''
+          if ($tp -notmatch '^[0-9A-Fa-f]{40}$') { throw 'Certificate thumbprint must be exactly 40 hex characters (CODE_SIGNING_CERT_THUMBPRINT org secret).' }
+          $fp = $env:CERTUM_FINGERPRINT_SHA256 -replace '\s',''
+          if ($fp -notmatch '^[0-9A-Fa-f]{64}$') { throw 'Certificate fingerprint must be exactly 64 hex characters (CODE_SIGNING_CERT_FINGERPRINT_SHA256 org secret, decision #73 amendment).' }
+          $uri = $null
+          if (-not [Uri]::TryCreate($env:CERTUM_SIMPLYSIGN_OTP_URI, [UriKind]::Absolute, [ref]$uri) -or
+              $uri.Scheme -ne 'otpauth' -or $uri.Host -ne 'totp' -or
+              $uri.Query -notmatch '[?&]secret=[A-Za-z2-7]+=*(&|$)') {
+            throw 'CERTUM_SIMPLYSIGN_OTP_URI must be the full otpauth://totp provisioning URI (org secrets setup, decision #38).'
+          }
+
+      - name: Connect to Certum SimplySign
+        # Pinned by full commit SHA; proven by the LocalTaskhandler signing
+        # test (run 43089090840, 2026-11-11). Never sees
+        # CERTUM_SIMPLYSIGN_PASSWORD - that secret stays dormant.
+        uses: dismine/windows-app-signing-setup-action@89ae3b032d4bc7a5b98d1a42a34e61ecb6faad64
+        with:
+          certum-username: ${{ secrets.CERTUM_SIMPLYSIGN_USERID }}
+          certum-otp-uri: ${{ secrets.CERTUM_SIMPLYSIGN_OTP_URI }}
+          certum-key-id: ${{ secrets.CODE_SIGNING_CERT_THUMBPRINT }}
+          capture-diagnostics: 'false'
+
+      - name: Sign NuGet package
+        # SHA-256 fingerprint interface (decision #73 amendment, 2026-11-12):
+        # works identically on .NET 9 and .NET 10 SDKs; no SDK pin needed.
+        shell: pwsh
+        env:
+          CERTUM_FINGERPRINT_SHA256: ${{ secrets.CODE_SIGNING_CERT_FINGERPRINT_SHA256 }}
+        run: |
+          $fp = ($env:CERTUM_FINGERPRINT_SHA256 -replace '\s','').ToUpperInvariant()
+          $packages = @(Get-ChildItem packages/*.nupkg)
+          if (-not $packages.Count) { throw 'No package found to sign.' }
+          foreach ($p in $packages) {
+            dotnet nuget sign $p.FullName --certificate-fingerprint $fp --timestamper http://time.certum.pl
+            if ($LASTEXITCODE -ne 0) { throw "Signing failed (exit $LASTEXITCODE): $($p.Name)" }
+          }
+
+      - name: Verify signature (gate)
+        # Any invalid signature fails the job and blocks publishing.
+        shell: pwsh
+        run: |
+          foreach ($p in @(Get-ChildItem packages/*.nupkg)) {
+            dotnet nuget verify $p.FullName
+            if ($LASTEXITCODE -ne 0) { throw "Signature verification failed (exit $LASTEXITCODE): $($p.Name)" }
+          }
+
+      - name: Upload signed package
+        uses: actions/upload-artifact@v5
+        with:
+          name: release-package-signed
+          path: packages/*.nupkg
+          if-no-files-found: error
+
+  publish-release:
+    name: Publish Release (GitHub Packages -> Release -> NuGet.org)
+    if: (github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'release' && github.event.action == 'published')
+    needs: [package-release, sign-release]
+    runs-on: ubuntu-latest
+    environment: ${{ vars.RELEASE_ENVIRONMENT || 'shared' }}
+    env:
+      NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
+      PACKAGE_VERSION: ${{ needs.package-release.outputs.package_version }}
+    permissions:
+      contents: write
+      packages: write
+
+    steps:
+      - name: Download signed package
+        uses: actions/download-artifact@v5
+        with:
+          name: release-package-signed
+          path: artifacts/
+
+      - name: Resolve signed package file
+        run: |
+          shopt -s nullglob
+          packages=(artifacts/*.nupkg)
+          if [ "${#packages[@]}" -eq 0 ]; then
+            echo "No signed package artifact was found."
+            exit 1
+          fi
+          if [ "${#packages[@]}" -ne 1 ]; then
+            echo "Expected exactly one signed package artifact but found ${#packages[@]}."
+            exit 1
+          fi
+          echo "PACKAGE_FILE=${packages[0]}" >> "$GITHUB_ENV"
 
       - name: Publish release to GitHub Packages
         run: |
