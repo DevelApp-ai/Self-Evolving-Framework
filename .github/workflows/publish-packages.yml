@@ -136,8 +136,6 @@ jobs:
     outputs:
       package_version: ${{ steps.meta.outputs.package_version }}
       package_file: ${{ steps.meta.outputs.package_file }}
-    env:
-      NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
     permissions:
       contents: write
       packages: write
@@ -300,11 +298,11 @@ jobs:
     runs-on: ubuntu-latest
     environment: ${{ vars.RELEASE_ENVIRONMENT || 'shared' }}
     env:
-      NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
       PACKAGE_VERSION: ${{ needs.package-release.outputs.package_version }}
     permissions:
       contents: write
       packages: write
+      id-token: write # OIDC token issuance for NuGet trusted publishing
 
     steps:
       - name: Download signed package
@@ -367,12 +365,26 @@ jobs:
           fail_on_unmatched_files: true
           files: ${{ env.PACKAGE_FILE }}
 
-      - name: Ensure NuGet.org publishing is configured
-        run: |
-          if [ -z "${{ env.NUGET_API_KEY }}" ]; then
-            echo "::error::NUGET_API_KEY is not configured. Add a valid NuGet.org API key in repository, organization, or selected release environment secrets with package push permission."
-            exit 1
-          fi
-
+      - name: NuGet.org login (OIDC -> temp API key)
+        # Trusted publishing (org standard; the long-lived NUGET_API_KEY secret is
+        # gone): this job's GitHub OIDC token is exchanged for a ~1-hour nuget.org
+        # API key, validated against the trusted publishing policy registered on
+        # nuget.org for this repository + workflow:
+        #   Repository Owner: DevelApp-ai
+        #   Repository:      Self-Evolving-Framework
+        #   Workflow File:   publish-packages.yml
+        #   Environment:     the job's environment (vars.RELEASE_ENVIRONMENT || 'shared') - the policy must name the same environment
+        # The DevelApp.SelfEvolvingFramework package is owned by Lars' personal
+        # larsbuch nuget.org account, so the profile name is the literal below
+        # (an org-level NUGET_USER secret carries the org account name and would
+        # be wrong here). NUGET_USER = the nuget.org profile name (NOT an
+        # email address). The login runs close to the push (the temp key is
+        # short-lived). Fails loudly if the policy is not (yet) registered.
+        id: nuget-login
+        if: true
+        uses: NuGet/login@v1
+        with:
+          user: larsbuch
       - name: Publish release to NuGet.org
-        run: dotnet nuget push "${{ env.PACKAGE_FILE }}" --source https://api.nuget.org/v3/index.json --api-key "${{ env.NUGET_API_KEY }}" --skip-duplicate
+        # Keyless trusted-publishing key from the login step above.
+        run: dotnet nuget push "${{ env.PACKAGE_FILE }}" --source https://api.nuget.org/v3/index.json --api-key "${{ steps.nuget-login.outputs.NUGET_API_KEY }}" --skip-duplicate
