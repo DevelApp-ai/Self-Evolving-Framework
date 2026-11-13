@@ -116,17 +116,17 @@ jobs:
         run: |
           probe_dir="$(mktemp -d /tmp/package-probe-pr-XXXXXX)"
           dotnet new classlib --framework net8.0 --output "$probe_dir" --force
-          for attempt in 1 2 3 4 5; do
+          for attempt in 1 2 3 4 5 6 7 8 9 10; do
             if dotnet add "$probe_dir" package DevelApp.Self-Evolving-Framework --version "${{ env.PACKAGE_VERSION }}" --source "https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json"; then
               exit 0
             fi
 
-            if [ "$attempt" -eq 5 ]; then
+            if [ "$attempt" -eq 10 ]; then
               echo "Package was published but could not be restored from GitHub Packages."
               exit 1
             fi
 
-            sleep 10
+            sleep 30
           done
 
   package-release:
@@ -342,17 +342,17 @@ jobs:
         run: |
           probe_dir="$(mktemp -d /tmp/package-probe-release-XXXXXX)"
           dotnet new classlib --framework net8.0 --output "$probe_dir" --force
-          for attempt in 1 2 3 4 5; do
+          for attempt in 1 2 3 4 5 6 7 8 9 10; do
             if dotnet add "$probe_dir" package DevelApp.Self-Evolving-Framework --version "${{ env.PACKAGE_VERSION }}" --source "https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json"; then
               exit 0
             fi
 
-            if [ "$attempt" -eq 5 ]; then
+            if [ "$attempt" -eq 10 ]; then
               echo "Package was published but could not be restored from GitHub Packages."
               exit 1
             fi
 
-            sleep 10
+            sleep 30
           done
 
       - name: Create or update GitHub Release
