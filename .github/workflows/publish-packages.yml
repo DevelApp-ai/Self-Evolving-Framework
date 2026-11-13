@@ -342,12 +342,19 @@ jobs:
         run: |
           probe_dir="$(mktemp -d /tmp/package-probe-release-XXXXXX)"
           dotnet new classlib --framework net8.0 --output "$probe_dir" --force
+          last_error=""
           for attempt in 1 2 3 4 5 6 7 8 9 10; do
-            if dotnet add "$probe_dir" package DevelApp.Self-Evolving-Framework --version "${{ env.PACKAGE_VERSION }}" --source "https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json"; then
+            if dotnet add "$probe_dir" package DevelApp.Self-Evolving-Framework --version "${{ env.PACKAGE_VERSION }}" --source "https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json" > /tmp/probe-attempt.log 2>&1; then
               exit 0
             fi
+            last_error="$(tail -n 4 /tmp/probe-attempt.log | tr '\n' ' ' | tr -s ' ' | cut -c1-450)"
 
             if [ "$attempt" -eq 10 ]; then
+              echo "::error::Restore probe failed after 10 attempts; last dotnet error: ${last_error}"
+              svc_index="$(curl -sS -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" "https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json" 2>&1 | tr '\n' ' ' | tr -s ' ' | cut -c1-450)"
+              echo "::error::GH Packages service index: ${svc_index}"
+              ver_index="$(curl -sS -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" "https://nuget.pkg.github.com/${{ github.repository_owner }}/download/develapp.self-evolving-framework/index.json" 2>&1 | tr '\n' ' ' | tr -s ' ' | cut -c1-450)"
+              echo "::error::Package version index: ${ver_index}"
               echo "Package was published but could not be restored from GitHub Packages."
               exit 1
             fi
