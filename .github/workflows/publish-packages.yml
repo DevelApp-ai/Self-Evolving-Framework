@@ -113,21 +113,30 @@ jobs:
             --skip-duplicate
 
       - name: Verify prerelease package download from GitHub Packages
+        # Probe the flatcontainer download endpoint directly (authenticated
+        # with GITHUB_TOKEN). A source-restricted `dotnet add package` is not
+        # a valid probe: the package's external dependencies (Microsoft.Playwright,
+        # Microsoft.SemanticKernel, OpaDotNet.Wasm, ...) only exist on nuget.org,
+        # so a GitHub-Packages-only restore fails with NU1101 even when the
+        # package itself is fully published and downloadable.
         run: |
-          probe_dir="$(mktemp -d /tmp/package-probe-pr-XXXXXX)"
-          dotnet new classlib --framework net8.0 --output "$probe_dir" --force
+          pkg_lower="develapp.self-evolving-framework"
+          download_url="https://nuget.pkg.github.com/${{ github.repository_owner }}/download/${pkg_lower}/${{ env.PACKAGE_VERSION }}/${pkg_lower}.${{ env.PACKAGE_VERSION }}.nupkg"
           for attempt in 1 2 3 4 5 6 7 8 9 10; do
-            if dotnet add "$probe_dir" package DevelApp.Self-Evolving-Framework --version "${{ env.PACKAGE_VERSION }}" --source "https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json"; then
-              exit 0
-            fi
-
-            if [ "$attempt" -eq 10 ]; then
-              echo "Package was published but could not be restored from GitHub Packages."
+            http_code="$(curl -sS -o /tmp/probe-prerelease.nupkg -w '%{http_code}' -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" "$download_url" || true)"
+            if [ "$http_code" = "200" ]; then
+              if unzip -l /tmp/probe-prerelease.nupkg 2>/dev/null | grep -q "\.nuspec"; then
+                echo "Package DevelApp.Self-Evolving-Framework ${{ env.PACKAGE_VERSION }} is downloadable from GitHub Packages (attempt $attempt)."
+                exit 0
+              fi
+              echo "::error::Downloaded blob is not a valid nupkg (attempt $attempt)."
               exit 1
             fi
-
+            echo "Attempt $attempt: download returned HTTP $http_code; retrying in 30s."
             sleep 30
           done
+          echo "::error::Prerelease package download probe failed after 10 attempts."
+          exit 1
 
   package-release:
     if: (github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'release' && github.event.action == 'published')
@@ -339,28 +348,31 @@ jobs:
             --skip-duplicate
 
       - name: Verify release package download from GitHub Packages
+        # Probe the flatcontainer download endpoint directly (authenticated
+        # with GITHUB_TOKEN). A source-restricted `dotnet add package` is not
+        # a valid probe: the package's external dependencies (Microsoft.Playwright,
+        # Microsoft.SemanticKernel, OpaDotNet.Wasm, ...) only exist on nuget.org,
+        # so a GitHub-Packages-only restore fails with NU1101 even when the
+        # package itself is fully published and downloadable.
         run: |
-          probe_dir="$(mktemp -d /tmp/package-probe-release-XXXXXX)"
-          dotnet new classlib --framework net8.0 --output "$probe_dir" --force
-          last_error=""
+          pkg_lower="develapp.self-evolving-framework"
+          download_url="https://nuget.pkg.github.com/${{ github.repository_owner }}/download/${pkg_lower}/${{ env.PACKAGE_VERSION }}/${pkg_lower}.${{ env.PACKAGE_VERSION }}.nupkg"
           for attempt in 1 2 3 4 5 6 7 8 9 10; do
-            if dotnet add "$probe_dir" package DevelApp.Self-Evolving-Framework --version "${{ env.PACKAGE_VERSION }}" --source "https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json" > /tmp/probe-attempt.log 2>&1; then
-              exit 0
-            fi
-            last_error="$(tail -n 4 /tmp/probe-attempt.log | tr '\n' ' ' | tr -s ' ' | cut -c1-450)"
-
-            if [ "$attempt" -eq 10 ]; then
-              echo "::error::Restore probe failed after 10 attempts; last dotnet error: ${last_error}"
-              svc_index="$(curl -sS -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" "https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json" 2>&1 | tr '\n' ' ' | tr -s ' ' | cut -c1-450)"
-              echo "::error::GH Packages service index: ${svc_index}"
-              ver_index="$(curl -sS -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" "https://nuget.pkg.github.com/${{ github.repository_owner }}/download/develapp.self-evolving-framework/index.json" 2>&1 | tr '\n' ' ' | tr -s ' ' | cut -c1-450)"
-              echo "::error::Package version index: ${ver_index}"
-              echo "Package was published but could not be restored from GitHub Packages."
+            http_code="$(curl -sS -o /tmp/probe-release.nupkg -w '%{http_code}' -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" "$download_url" || true)"
+            if [ "$http_code" = "200" ]; then
+              if unzip -l /tmp/probe-release.nupkg 2>/dev/null | grep -q "\.nuspec"; then
+                echo "Package DevelApp.Self-Evolving-Framework ${{ env.PACKAGE_VERSION }} is downloadable from GitHub Packages (attempt $attempt)."
+                exit 0
+              fi
+              echo "::error::Downloaded blob is not a valid nupkg (attempt $attempt)."
               exit 1
             fi
-
+            echo "Attempt $attempt: download returned HTTP $http_code; retrying in 30s."
             sleep 30
           done
+          ver_index="$(curl -sS -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" "https://nuget.pkg.github.com/${{ github.repository_owner }}/download/${pkg_lower}/index.json" 2>&1 | tr '\n' ' ' | tr -s ' ' | cut -c1-450)"
+          echo "::error::Release package download probe failed after 10 attempts; package version index: ${ver_index}"
+          exit 1
 
       - name: Create or update GitHub Release
         uses: softprops/action-gh-release@v3
